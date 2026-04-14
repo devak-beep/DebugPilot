@@ -1,65 +1,336 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import { signOut, useSession } from "next-auth/react";
+import RequestBuilder from "./components/RequestBuilder";
+import ResponseViewer from "./components/ResponseViewer";
+import DiffViewer from "./components/DiffViewer";
+import ThemeToggle from "./components/ThemeToggle";
+import { Logo } from "./components/BrandLogo";
+import CollectionsSidebar from "./components/CollectionsSidebar";
+import SaveRequestModal from "./components/SaveRequestModal";
+import SaveExampleModal from "./components/SaveExampleModal";
+import { executeRequest, fetchHistory, fetchHistoryEntry, fetchCollections } from "@/lib/api";
+import type { ApiResponse, HistoryEntry, RequestData, Collection, SavedRequest } from "@/lib/api";
+
+interface RequestTab {
+  id: string;
+  label: string;
+  savedName?: string;
+  savedRequestId?: string;
+  prefill: RequestData | null;
+  response: ApiResponse | null;
+  currentRequest: RequestData | null;
+  isLoading: boolean;
+  diffData: { a: { entry: HistoryEntry; response: string }; b: { entry: HistoryEntry; response: string } } | null;
+  diffLoading: boolean;
+}
+
+let tabCounter = 1;
+function newTab(prefill?: RequestData): RequestTab {
+  return {
+    id: `tab-${Date.now()}-${tabCounter++}`,
+    label: prefill ? `${prefill.method} ${prefill.url}`.slice(0, 30) : "New Request",
+    prefill: prefill ?? null,
+    response: null,
+    currentRequest: null,
+    isLoading: false,
+    diffData: null,
+    diffLoading: false,
+  };
+}
 
 export default function Home() {
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const { data: session } = useSession();
+  const [tabs, setTabs] = useState<RequestTab[]>([newTab()]);
+  const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0].id);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("dp_tabs");
+      const savedActive = localStorage.getItem("dp_active_tab");
+      if (saved) {
+        const parsed: RequestTab[] = JSON.parse(saved);
+        if (parsed.length > 0) {
+          const restored = parsed.map(t => ({ ...t, isLoading: false, diffLoading: false }));
+          setTabs(restored);
+          const validActive = restored.find(t => t.id === savedActive);
+          setActiveTabId(validActive ? savedActive! : restored[0].id);
+        }
+      }
+    } catch {}
+    setHydrated(true);
+  }, []);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [replayingId, setReplayingId] = useState<string | null>(null);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [saveTarget, setSaveTarget] = useState<{ request: RequestData; defaultName?: string } | null>(null);
+  const [saveExampleTarget, setSaveExampleTarget] = useState(false);
+
+  const activeTab = tabs.find(t => t.id === activeTabId) ?? tabs[0];
+
+  const updateTab = (id: string, patch: Partial<RequestTab>) =>
+    setTabs(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t));
+
+  const openInNewTab = (prefill: RequestData, savedName?: string, savedRequestId?: string) => {
+    const existing = tabs.find(t =>
+      savedRequestId ? t.savedRequestId === savedRequestId
+        : t.prefill?.url === prefill.url && t.prefill?.method === prefill.method && !t.savedRequestId
+    );
+    if (existing) { setActiveTabId(existing.id); return; }
+    const tab = { ...newTab(prefill), ...(savedName ? { label: savedName, savedName } : {}), ...(savedRequestId ? { savedRequestId } : {}) };
+    setTabs(prev => [...prev, tab]);
+    setActiveTabId(tab.id);
+  };
+
+  const closeTab = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTabs(prev => {
+      if (prev.length === 1) return [newTab()];
+      const next = prev.filter(t => t.id !== id);
+      if (id === activeTabId) setActiveTabId(next[Math.max(0, prev.findIndex(t => t.id === id) - 1)].id);
+      return next;
+    });
+  };
+
+  const addTab = () => {
+    const tab = newTab();
+    setTabs(prev => [...prev, tab]);
+    setActiveTabId(tab.id);
+  };
+
+  const loadHistory = useCallback(async () => {
+    try { setHistory(await fetchHistory()); }
+    catch {} finally { setHistoryLoading(false); }
+  }, []);
+
+  const loadCollections = useCallback(async () => {
+    try { setCollections(await fetchCollections()); } catch {}
+  }, []);
+
+  useEffect(() => { loadHistory(); loadCollections(); }, [loadHistory, loadCollections]);
+
+  useEffect(() => {
+    localStorage.setItem("dp_tabs", JSON.stringify(tabs));
+  }, [tabs]);
+
+  useEffect(() => {
+    if (activeTabId) localStorage.setItem("dp_active_tab", activeTabId);
+  }, [activeTabId]);
+
+  const handleRequestSubmit = async (tabId: string, requestData: RequestData) => {
+    updateTab(tabId, { isLoading: true, response: null, currentRequest: requestData, label: tabs.find(t => t.id === tabId)?.savedName ?? `${requestData.method} ${requestData.url}`.slice(0, 30) });
+    try {
+      const data = await executeRequest(requestData);
+      updateTab(tabId, { response: data, isLoading: false });
+      loadHistory();
+    } catch {
+      updateTab(tabId, { response: { status: 0, statusText: "Network Error", body: null, timeTaken: 0, error: "Failed to reach the API server" }, isLoading: false });
+    }
+  };
+
+  const handleReplay = async (entry: HistoryEntry) => {
+    let parsedHeaders: Record<string, string> = {};
+    try { parsedHeaders = JSON.parse(entry.headers); } catch {}
+    const requestData: RequestData = {
+      url: entry.url, method: entry.method,
+      headers: Object.entries(parsedHeaders).map(([key, value]) => ({ key, value })),
+      body: entry.body,
+    };
+    setReplayingId(entry.id);
+    await handleRequestSubmit(activeTabId, requestData);
+    setReplayingId(null);
+  };
+
+  const handleLoadHistory = (entry: HistoryEntry) => {
+    let parsedHeaders: Record<string, string> = {};
+    try { parsedHeaders = JSON.parse(entry.headers); } catch {}
+    const prefill: RequestData = {
+      url: entry.url, method: entry.method,
+      headers: Object.entries(parsedHeaders).map(([key, value]) => ({ key, value })),
+      body: entry.body,
+    };
+    openInNewTab(prefill);
+  };
+
+  const handleDiff = async (a: HistoryEntry, b: HistoryEntry) => {
+    const id = activeTabId;
+    updateTab(id, { diffLoading: true });
+    try {
+      const [resA, resB] = await Promise.all([fetchHistoryEntry(a.id), fetchHistoryEntry(b.id)]);
+      if (!resA || !resB) return;
+      updateTab(id, { diffData: { a: { entry: a, response: resA.response }, b: { entry: b, response: resB.response } }, diffLoading: false });
+    } catch { updateTab(id, { diffLoading: false }); }
+  };
+
+  const handleLoadSaved = (req: SavedRequest) => {
+    let parsedHeaders: Record<string, string> = {};
+    try { parsedHeaders = JSON.parse(req.headers); } catch {}
+    const prefill: RequestData = {
+      url: req.url, method: req.method,
+      headers: Object.entries(parsedHeaders).map(([key, value]) => ({ key, value })),
+      body: req.body,
+    };
+    openInNewTab(prefill, req.name, req.id);
+  };
+
+  const handleSaveFromHistory = (entry: HistoryEntry) => {
+    let parsedHeaders: Record<string, string> = {};
+    try { parsedHeaders = JSON.parse(entry.headers); } catch {}
+    setSaveTarget({
+      request: { url: entry.url, method: entry.method, headers: Object.entries(parsedHeaders).map(([key, value]) => ({ key, value })), body: entry.body },
+      defaultName: `${entry.method} ${entry.url}`.slice(0, 60),
+    });
+  };
+
+  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const isResizing = useRef(false);
+  const startResize = (e: React.MouseEvent) => {
+    isResizing.current = true;
+    const startX = e.clientX;
+    const startW = sidebarWidth;
+    const onMove = (e: MouseEvent) => { if (!isResizing.current) return; setSidebarWidth(Math.min(480, Math.max(180, startW + e.clientX - startX))); };
+    const onUp = () => { isResizing.current = false; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  const cardStyle = { background: "var(--bg-card)", border: "1px solid var(--border)" };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-base)" }}>
+
+      {/* Sidebar */}
+      <div className="shrink-0 flex flex-col overflow-hidden relative" style={{ width: sidebarWidth }}>
+        <CollectionsSidebar
+          collections={collections} history={history} historyLoading={historyLoading} replayingId={replayingId}
+          onRefresh={loadCollections} onLoadRequest={handleLoadSaved} onLoadHistory={handleLoadHistory}
+          onReplay={handleReplay} onDiff={handleDiff} onSaveFromHistory={handleSaveFromHistory} onHistoryCleared={loadHistory}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+        <div onMouseDown={startResize} className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-[var(--accent)] transition-colors" style={{ opacity: 0.4 }} />
+      </div>
+
+      {/* Main area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-6 py-3 shrink-0"
+          style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
+          <Logo nav />
+          <div className="flex items-center gap-3">
+            {session?.user?.name && (
+              <span className="text-xs font-medium px-2 py-1 rounded-lg"
+                style={{ background: "color-mix(in srgb, var(--accent) 10%, transparent)", color: "var(--accent)", border: "1px solid var(--border)" }}>
+                👤 {session.user.name}
+              </span>
+            )}
+            <ThemeToggle />
+            <button onClick={() => setShowSignOutConfirm(true)}
+              className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
+              style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>
+              Sign Out
+            </button>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Tab bar */}
+        {hydrated && <div className="flex items-end shrink-0 px-2 pt-2 gap-1"
+          style={{ background: "var(--bg-base)", borderBottom: "1px solid var(--border)", overflowX: "auto", scrollbarWidth: "none" }}>
+          {tabs.map(tab => {
+            const isActive = tab.id === activeTabId;
+            return (
+              <div key={tab.id} onClick={() => setActiveTabId(tab.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs font-medium cursor-pointer group transition-all duration-150"
+                style={{
+                  flex: "1 1 0",
+                  minWidth: "80px",
+                  maxWidth: "180px",
+                  background: isActive ? "var(--bg-card)" : "transparent",
+                  color: isActive ? "var(--accent)" : "var(--text-muted)",
+                  border: isActive ? "1px solid var(--border)" : "1px solid transparent",
+                  borderBottom: isActive ? "1px solid var(--bg-card)" : "1px solid transparent",
+                  marginBottom: isActive ? "-1px" : "0",
+                  boxShadow: isActive ? "0 -2px 0 0 var(--accent)" : "none",
+                }}
+                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.color = "var(--accent)"; }}
+                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.color = "var(--text-muted)"; }}>
+                <span className="truncate flex-1 transition-colors" style={{ color: isActive ? "var(--accent)" : "inherit" }}>{tab.label}</span>
+                <button onClick={(e) => closeTab(tab.id, e)}
+                  className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity leading-none rounded px-0.5 hover:bg-red-500/20 hover:text-red-400"
+                  style={{ color: "var(--text-muted)" }}>✕</button>
+              </div>
+            );
+          })}
+          <button onClick={addTab}
+            className="px-2.5 py-1.5 rounded-t-lg text-sm shrink-0 transition-all"
+            style={{ color: "var(--text-muted)", border: "1px solid transparent" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--accent)"; (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--accent) 10%, transparent)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+            title="New tab">+</button>
+        </div>}
+
+        {/* Tab content */}
+        <div key={activeTab.id} className="flex-1 overflow-y-auto p-6 space-y-5">
+          <RequestBuilder
+            onSubmit={(data) => handleRequestSubmit(activeTab.id, data)}
+            isLoading={activeTab.isLoading}
+            prefill={activeTab.prefill}
+            onSave={activeTab.currentRequest ? () => setSaveTarget({ request: activeTab.currentRequest! }) : undefined}
+          />
+
+          {activeTab.isLoading && (
+            <div className="p-6 rounded-xl text-center text-sm animate-pulse" style={cardStyle}>
+              <span style={{ color: "var(--text-muted)" }}>⏳ Sending request...</span>
+            </div>
+          )}
+
+          {activeTab.response && !activeTab.isLoading && <ResponseViewer response={activeTab.response} onSaveResponse={() => setSaveExampleTarget(true)} />}
+
+          {activeTab.diffLoading && (
+            <div className="p-4 rounded-xl text-center text-sm animate-pulse" style={cardStyle}>
+              <span style={{ color: "var(--text-muted)" }}>⏳ Loading diff...</span>
+            </div>
+          )}
+
+          {activeTab.diffData && !activeTab.diffLoading && (
+            <DiffViewer a={activeTab.diffData.a} b={activeTab.diffData.b}
+              onClose={() => updateTab(activeTab.id, { diffData: null })} />
+          )}
         </div>
-      </main>
+      </div>
+
+      {saveTarget && (
+        <SaveRequestModal request={saveTarget.request} defaultName={saveTarget.defaultName}
+          collections={collections}
+          onSaved={(name) => { updateTab(activeTab.id, { label: name, savedName: name }); loadCollections(); }}
+          onClose={() => setSaveTarget(null)} />
+      )}
+
+      {saveExampleTarget && activeTab.response && (
+        <SaveExampleModal
+          response={activeTab.response}
+          savedRequestId={activeTab.savedRequestId ?? null}
+          onSaved={loadCollections}
+          onClose={() => setSaveExampleTarget(false)} />
+      )}
+
+      {showSignOutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
+          <div className="rounded-2xl p-6 w-80 space-y-4 shadow-xl" style={cardStyle}>
+            <h3 className="font-semibold text-base" style={{ color: "var(--text-primary)" }}>Sign out?</h3>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>Are you sure you want to sign out of DebugPilot?</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setShowSignOutConfirm(false)} className="px-4 py-2 rounded-lg text-sm font-medium"
+                style={{ background: "var(--bg-input)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>Cancel</button>
+              <button onClick={() => signOut({ callbackUrl: "/login" })} className="px-4 py-2 rounded-lg text-sm font-medium"
+                style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", border: "1px solid rgba(239,68,68,0.3)" }}>Sign Out</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
