@@ -1,5 +1,4 @@
 import nodemailer from "nodemailer"
-import path from "path"
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -28,7 +27,7 @@ export async function sendOtpEmail(to: string, otp: string, purpose: "register" 
             <table cellpadding="0" cellspacing="0" style="margin:0 auto">
               <tr>
                 <td style="vertical-align:middle;padding-right:12px">
-                  <img src="cid:logo" width="52" height="52" alt="DebugPilot" style="display:block;border-radius:12px" />
+                  <img src="https://debug-pilot.vercel.app/logo-icon.png" width="52" height="52" alt="DebugPilot" style="display:block;border-radius:12px" />
                 </td>
                 <td style="vertical-align:middle;text-align:left">
                   <div style="font-size:28px;font-weight:900;letter-spacing:-0.5px;line-height:1.1">
@@ -77,11 +76,5 @@ export async function sendOtpEmail(to: string, otp: string, purpose: "register" 
     to,
     subject,
     html,
-    attachments: [{
-      filename: 'logo-icon.png',
-      path: path.join(process.cwd(), 'public', 'logo-icon.png'),
-      cid: 'logo',
-      contentDisposition: 'inline',
-    }],
   })
 }
