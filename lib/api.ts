@@ -157,7 +157,7 @@ export async function saveExample(savedRequestId: string, data: {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
   });
   const text = await res.text();
-  return text ? JSON.parse(text) : {};
+  return text ? JSON.parse(text) : ({} as SavedExample);
 }
 
 export async function deleteExample(savedRequestId: string, exampleId: string) {
