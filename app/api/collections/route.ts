@@ -1,32 +1,60 @@
 export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import db, { cuid } from '@/lib/db'
 import { auth } from '@/lib/auth'
 
 export async function GET() {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const collections = await prisma.collection.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
-    include: {
-      folders: { orderBy: { createdAt: 'asc' }, include: { requests: { orderBy: { createdAt: 'asc' }, include: { examples: { orderBy: { createdAt: 'asc' } } } } } },
-      requests: { where: { folderId: null }, orderBy: { createdAt: 'asc' }, include: { examples: { orderBy: { createdAt: 'asc' } } } },
-    },
-  })
-  return NextResponse.json(collections)
+  const uid = session.user.id
+
+  const cols = await db.execute({ sql: 'SELECT * FROM Collection WHERE userId = ? ORDER BY createdAt ASC', args: [uid] })
+  const folders = await db.execute({ sql: 'SELECT * FROM Folder WHERE userId = ? ORDER BY createdAt ASC', args: [uid] })
+  const requests = await db.execute({ sql: 'SELECT * FROM SavedRequest WHERE userId = ? ORDER BY createdAt ASC', args: [uid] })
+  const examples = await db.execute({ sql: 'SELECT * FROM SavedExample ORDER BY createdAt ASC', args: [] })
+
+  const exByReq: Record<string, any[]> = {}
+  for (const ex of examples.rows) {
+    const rid = ex.savedRequestId as string
+    if (!exByReq[rid]) exByReq[rid] = []
+    exByReq[rid].push(ex)
+  }
+
+  const reqByFolder: Record<string, any[]> = {}
+  const reqByCol: Record<string, any[]> = {}
+  for (const r of requests.rows) {
+    const req = { ...r, examples: exByReq[r.id as string] ?? [] }
+    if (r.folderId) {
+      if (!reqByFolder[r.folderId as string]) reqByFolder[r.folderId as string] = []
+      reqByFolder[r.folderId as string].push(req)
+    } else {
+      if (!reqByCol[r.collectionId as string]) reqByCol[r.collectionId as string] = []
+      reqByCol[r.collectionId as string].push(req)
+    }
+  }
+
+  const foldersByCol: Record<string, any[]> = {}
+  for (const f of folders.rows) {
+    const folder = { ...f, requests: reqByFolder[f.id as string] ?? [] }
+    if (!foldersByCol[f.collectionId as string]) foldersByCol[f.collectionId as string] = []
+    foldersByCol[f.collectionId as string].push(folder)
+  }
+
+  const result = cols.rows.map(c => ({
+    ...c,
+    folders: foldersByCol[c.id as string] ?? [],
+    requests: reqByCol[c.id as string] ?? [],
+  }))
+
+  return NextResponse.json(result)
 }
 
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  try {
-    const { name } = await req.json()
-    if (!name?.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 })
-    const collection = await prisma.collection.create({ data: { name: name.trim(), userId: session.user.id } })
-    return NextResponse.json({ ...collection, folders: [], requests: [] })
-  } catch (e) {
-    console.error(e)
-    return NextResponse.json({ error: 'Failed to create collection' }, { status: 500 })
-  }
+  const { name } = await req.json()
+  if (!name?.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 })
+  const id = cuid()
+  await db.execute({ sql: 'INSERT INTO Collection (id, userId, name, isPublic, createdAt) VALUES (?, ?, ?, 0, ?)', args: [id, session.user.id, name.trim(), new Date().toISOString()] })
+  return NextResponse.json({ id, userId: session.user.id, name: name.trim(), folders: [], requests: [] })
 }

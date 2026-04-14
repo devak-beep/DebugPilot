@@ -1,17 +1,16 @@
 export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import db, { cuid } from "@/lib/db"
 import bcrypt from "bcryptjs"
 
 export async function POST(req: NextRequest) {
   const { name, email, password } = await req.json()
   if (!name?.trim() || !email?.trim() || !password)
     return NextResponse.json({ error: "All fields required" }, { status: 400 })
-
-  const existing = await prisma.user.findUnique({ where: { email } })
-  if (existing) return NextResponse.json({ error: "Email already registered" }, { status: 409 })
-
+  const existing = await db.execute({ sql: 'SELECT id FROM User WHERE email = ?', args: [email] })
+  if (existing.rows.length) return NextResponse.json({ error: "Email already registered" }, { status: 409 })
   const hashed = await bcrypt.hash(password, 10)
-  const user = await prisma.user.create({ data: { name, email, password: hashed } })
-  return NextResponse.json({ id: user.id, name: user.name, email: user.email })
+  const id = cuid()
+  await db.execute({ sql: 'INSERT INTO User (id, name, email, password, createdAt) VALUES (?, ?, ?, ?, ?)', args: [id, name, email, hashed, new Date().toISOString()] })
+  return NextResponse.json({ id, name, email })
 }

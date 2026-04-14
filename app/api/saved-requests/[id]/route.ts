@@ -1,13 +1,13 @@
 export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import db from '@/lib/db'
 import { auth } from '@/lib/auth'
 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
-  await prisma.savedRequest.deleteMany({ where: { id, userId: session.user.id } })
+  await db.execute({ sql: 'DELETE FROM SavedRequest WHERE id = ? AND userId = ?', args: [id, session.user.id] })
   return NextResponse.json({ ok: true })
 }
 
@@ -16,6 +16,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   const { name } = await req.json()
-  await prisma.savedRequest.updateMany({ where: { id, userId: session.user.id }, data: { name } })
+  await db.execute({ sql: 'UPDATE SavedRequest SET name = ? WHERE id = ? AND userId = ?', args: [name, id, session.user.id] })
   return NextResponse.json({ ok: true })
 }

@@ -1,36 +1,28 @@
 export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import db, { cuid } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { randomBytes } from 'crypto'
 
-// GET: fetch share token (generate if missing)
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
-
-  let req = await prisma.savedRequest.findFirst({ where: { id, userId: session.user.id } })
-  if (!req) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
-  if (!req.shareToken) {
-    req = await prisma.savedRequest.update({
-      where: { id },
-      data: { shareToken: randomBytes(16).toString('hex'), isPublic: true },
-    })
+  const r = await db.execute({ sql: 'SELECT * FROM SavedRequest WHERE id = ? AND userId = ?', args: [id, session.user.id] })
+  if (!r.rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  let row = r.rows[0]
+  if (!row.shareToken) {
+    const token = randomBytes(16).toString('hex')
+    await db.execute({ sql: 'UPDATE SavedRequest SET shareToken = ?, isPublic = 1 WHERE id = ?', args: [token, id] })
+    row = { ...row, shareToken: token }
   }
-
-  return NextResponse.json({ token: req.shareToken })
+  return NextResponse.json({ token: row.shareToken })
 }
 
-// DELETE: revoke share
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
-  await prisma.savedRequest.updateMany({
-    where: { id, userId: session.user.id },
-    data: { shareToken: null, isPublic: false },
-  })
+  await db.execute({ sql: 'UPDATE SavedRequest SET shareToken = NULL, isPublic = 0 WHERE id = ? AND userId = ?', args: [id, session.user.id] })
   return NextResponse.json({ ok: true })
 }

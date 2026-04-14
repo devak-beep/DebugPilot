@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import db, { cuid } from '@/lib/db'
 import { auth } from '@/lib/auth'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -9,6 +9,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id: collectionId } = await params
   const { name } = await req.json()
   if (!name?.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 })
-  const folder = await prisma.folder.create({ data: { name: name.trim(), collectionId, userId: session.user.id } })
-  return NextResponse.json({ ...folder, requests: [] })
+  const id = cuid()
+  await db.execute({ sql: 'INSERT INTO Folder (id, userId, collectionId, name, isPublic, createdAt) VALUES (?, ?, ?, ?, 0, ?)', args: [id, session.user.id, collectionId, name.trim(), new Date().toISOString()] })
+  return NextResponse.json({ id, userId: session.user.id, collectionId, name: name.trim(), requests: [] })
 }
