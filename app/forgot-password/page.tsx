@@ -154,4 +154,3 @@ export default function ForgotPasswordPage() {
   );
 }
 
-type Step = "email" | "otp" | "password";
