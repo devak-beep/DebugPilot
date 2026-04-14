@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer"
+import path from "path"
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -24,17 +25,19 @@ export async function sendOtpEmail(to: string, otp: string, purpose: "register" 
         <!-- Header -->
         <tr>
           <td style="background:linear-gradient(135deg,#14532d,#166534);padding:32px;text-align:center">
-            <!-- Inline SVG logo mark -->
-            <div style="margin-bottom:12px">
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="40" height="40" rx="10" fill="#22c55e"/>
-                <path d="M10 20 L16 14 L16 26 Z" fill="#052e16"/>
-                <path d="M20 13 L20 27" stroke="#052e16" stroke-width="2.5" stroke-linecap="round"/>
-                <path d="M25 16 L30 20 L25 24" stroke="#052e16" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <h1 style="margin:0;color:#dcfce7;font-size:22px;font-weight:700;letter-spacing:-0.5px">DebugPilot</h1>
-            <p style="margin:6px 0 0;color:#86efac;font-size:12px;letter-spacing:0.5px">API Debugger</p>
+            <table cellpadding="0" cellspacing="0" style="margin:0 auto">
+              <tr>
+                <td style="vertical-align:middle;padding-right:12px">
+                  <img src="cid:logo" width="52" height="52" alt="DebugPilot" style="display:block;border-radius:12px" />
+                </td>
+                <td style="vertical-align:middle;text-align:left">
+                  <div style="font-size:28px;font-weight:900;letter-spacing:-0.5px;line-height:1.1">
+                    <span style="color:#dcfce7">Debug</span><span style="color:#22c55e">Pilot</span>
+                  </div>
+                  <div style="font-size:10px;font-weight:600;color:#86efac;letter-spacing:2px;text-transform:uppercase;margin-top:3px">API Debugger</div>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
 
@@ -74,5 +77,11 @@ export async function sendOtpEmail(to: string, otp: string, purpose: "register" 
     to,
     subject,
     html,
+    attachments: [{
+      filename: 'logo-icon.png',
+      path: path.join(process.cwd(), 'public', 'logo-icon.png'),
+      cid: 'logo',
+      contentDisposition: 'inline',
+    }],
   })
 }
