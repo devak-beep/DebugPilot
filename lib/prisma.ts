@@ -2,18 +2,18 @@ import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 
-if (!globalForPrisma.prisma) {
-  if (process.env.TURSO_DATABASE_URL) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { PrismaLibSql } = require('@prisma/adapter-libsql')
-    const adapter = new PrismaLibSql({
-      url: process.env.TURSO_DATABASE_URL,
-      authToken: process.env.TURSO_AUTH_TOKEN,
-    })
-    globalForPrisma.prisma = new PrismaClient({ adapter } as any)
-  } else {
-    globalForPrisma.prisma = new PrismaClient()
+function createPrisma(): PrismaClient {
+  if (process.env.NEON_DATABASE_URL) {
+    const { Pool, neonConfig } = require('@neondatabase/serverless')
+    const { PrismaNeon } = require('@prisma/adapter-neon')
+    const ws = require('ws')
+    neonConfig.webSocketConstructor = ws
+    const pool = new Pool({ connectionString: process.env.NEON_DATABASE_URL })
+    const adapter = new PrismaNeon(pool)
+    return new PrismaClient({ adapter } as any)
   }
+  return new PrismaClient()
 }
 
-export const prisma = globalForPrisma.prisma
+export const prisma = globalForPrisma.prisma ?? createPrisma()
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
