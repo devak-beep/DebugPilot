@@ -2,18 +2,18 @@ import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 
-function createPrisma(): PrismaClient {
+if (!globalForPrisma.prisma) {
   if (process.env.TURSO_DATABASE_URL) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { PrismaLibSql } = require('@prisma/adapter-libsql')
     const adapter = new PrismaLibSql({
       url: process.env.TURSO_DATABASE_URL,
       authToken: process.env.TURSO_AUTH_TOKEN,
     })
-    return new PrismaClient({ adapter } as any)
+    globalForPrisma.prisma = new PrismaClient({ adapter } as any)
+  } else {
+    globalForPrisma.prisma = new PrismaClient()
   }
-  return new PrismaClient()
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrisma()
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+export const prisma = globalForPrisma.prisma
