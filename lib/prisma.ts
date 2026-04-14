@@ -1,10 +1,11 @@
 import { PrismaClient } from '@prisma/client'
-import { PrismaLibSql } from '@prisma/adapter-libsql'
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 
-function createPrisma() {
+function createPrisma(): PrismaClient {
   if (process.env.TURSO_DATABASE_URL) {
+    // Dynamic import to avoid build-time initialization
+    const { PrismaLibSql } = require('@prisma/adapter-libsql')
     const adapter = new PrismaLibSql({
       url: process.env.TURSO_DATABASE_URL,
       authToken: process.env.TURSO_AUTH_TOKEN,
