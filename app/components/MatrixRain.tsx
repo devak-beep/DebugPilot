@@ -27,7 +27,7 @@ export default function MatrixRain() {
     const interval = setInterval(() => {
       ctx.fillStyle = isDark()
         ? "rgba(5, 46, 22, 0.05)"
-        : "rgba(240, 253, 244, 0.05)";
+        : "rgba(240, 253, 244, 0.08)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.font = `${fontSize}px monospace`;
@@ -37,7 +37,7 @@ export default function MatrixRain() {
         const bright = Math.random() > 0.95;
         ctx.fillStyle = isDark()
           ? bright ? "#86efac" : "#16a34a"
-          : bright ? "#16a34a" : "#4ade80";
+          : bright ? "#14532d" : "#15803d";
         ctx.fillText(char, i * fontSize, drops[i] * fontSize);
 
         if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {

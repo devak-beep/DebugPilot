@@ -57,7 +57,6 @@ body {
   position: relative;
   border-radius: 1rem;
   border: 1px solid var(--border);
-  overflow: hidden;
 }
 
 .auth-card-border::before {
@@ -77,6 +76,7 @@ body {
   z-index: 2;
   border-radius: calc(1rem - 1px);
   background: var(--bg-card);
+  overflow: hidden;
 }
 
 /* Scrollbar styling */
