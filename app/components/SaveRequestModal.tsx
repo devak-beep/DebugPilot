@@ -8,14 +8,16 @@ interface Props {
   request: RequestData;
   collections: Collection[];
   defaultName?: string;
+  defaultCollectionId?: string;
+  defaultFolderId?: string;
   onSaved: (name: string) => void;
   onClose: () => void;
 }
 
-export default function SaveRequestModal({ request, collections, defaultName, onSaved, onClose }: Props) {
+export default function SaveRequestModal({ request, collections, defaultName, defaultCollectionId, defaultFolderId, onSaved, onClose }: Props) {
   const [name, setName] = useState(defaultName ?? `${request.method} ${request.url}`.slice(0, 60));
-  const [collectionId, setCollectionId] = useState(collections[0]?.id ?? "");
-  const [folderId, setFolderId] = useState("");
+  const [collectionId, setCollectionId] = useState(defaultCollectionId ?? collections[0]?.id ?? "");
+  const [folderId, setFolderId] = useState(defaultFolderId ?? "");
   const [saving, setSaving] = useState(false);
 
   const selectedCollection = collections.find((c) => c.id === collectionId);

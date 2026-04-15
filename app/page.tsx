@@ -68,7 +68,7 @@ export default function Home() {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [replayingId, setReplayingId] = useState<string | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
-  const [saveTarget, setSaveTarget] = useState<{ request: RequestData; defaultName?: string } | null>(null);
+  const [saveTarget, setSaveTarget] = useState<{ request: RequestData; defaultName?: string; defaultCollectionId?: string; defaultFolderId?: string } | null>(null);
   const [saveExampleTarget, setSaveExampleTarget] = useState(false);
 
   const activeTab = tabs.find(t => t.id === activeTabId) ?? tabs[0];
@@ -220,6 +220,12 @@ export default function Home() {
           collections={collections} history={history} historyLoading={historyLoading} replayingId={replayingId}
           onRefresh={loadCollections} onLoadRequest={handleLoadSaved} onLoadHistory={handleLoadHistory}
           onLoadExample={handleLoadExample}
+          onNewRequest={(collectionId, folderId) => setSaveTarget({
+            request: { url: "", method: "GET", headers: [], body: null },
+            defaultName: "New Request",
+            defaultCollectionId: collectionId,
+            defaultFolderId: folderId ?? undefined,
+          })}
           onReplay={handleReplay} onDiff={handleDiff} onSaveFromHistory={handleSaveFromHistory} onHistoryCleared={loadHistory}
         />
         <div onMouseDown={startResize} className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-[var(--accent)] transition-colors" style={{ opacity: 0.4 }} />
@@ -316,6 +322,8 @@ export default function Home() {
 
       {saveTarget && (
         <SaveRequestModal request={saveTarget.request} defaultName={saveTarget.defaultName}
+          defaultCollectionId={saveTarget.defaultCollectionId}
+          defaultFolderId={saveTarget.defaultFolderId}
           collections={collections}
           onSaved={(name) => { updateTab(activeTab.id, { label: name, savedName: name }); loadCollections(); }}
           onClose={() => setSaveTarget(null)} />

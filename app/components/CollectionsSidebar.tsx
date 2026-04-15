@@ -27,6 +27,7 @@ interface Props {
   onDiff: (a: HistoryEntry, b: HistoryEntry) => void;
   onSaveFromHistory: (entry: HistoryEntry) => void;
   onHistoryCleared: () => void;
+  onNewRequest: (collectionId: string, folderId: string | null) => void;
 }
 
 const METHOD_COLORS: Record<string, string> = {
@@ -164,12 +165,12 @@ function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefre
   );
 }
 
-function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, onRefresh, onConfirmDelete, onShare, onLoadExample, onMoveRequest }: {
+function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, onRefresh, onConfirmDelete, onShare, onLoadExample, onMoveRequest, onNewRequest }: {
   folder: Folder; collectionId: string; onLoadRequest: (r: SavedRequest) => void;
   onDelete: () => void; onRename: () => void; onRefresh: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void;
   onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
-  onMoveRequest: (r: SavedRequest) => void;
+  onMoveRequest: (r: SavedRequest) => void; onNewRequest: () => void;
 }) {
   const [open, setOpen] = useState(true);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -180,6 +181,7 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
         <span className="text-xs">{open ? "📂" : "📁"}</span>
         <span className="flex-1 text-xs font-medium truncate" style={{ color: "var(--text-secondary)" }}>{folder.name}</span>
         <DotsMenu items={[
+          { label: "➕ New Request", onClick: onNewRequest },
           { label: "✏️ Rename", onClick: onRename },
           { label: "🗑 Delete", danger: true, onClick: onDelete },
         ]} />
@@ -208,11 +210,11 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
   );
 }
 
-function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRename, onShare, onLoadExample, onMoveRequest }: {
+function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRename, onShare, onLoadExample, onMoveRequest, onNewRequest }: {
   col: Collection; onLoadRequest: (r: SavedRequest) => void; onRefresh: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void;
   onRename: () => void; onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
-  onMoveRequest: (r: SavedRequest) => void;
+  onMoveRequest: (r: SavedRequest) => void; onNewRequest: (collectionId: string, folderId: string | null) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [addingFolder, setAddingFolder] = useState(false);
@@ -261,6 +263,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
                   onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
                   onLoadExample={onLoadExample}
                   onMoveRequest={onMoveRequest}
+                  onNewRequest={() => onNewRequest(col.id, f.id)}
                   onRename={() => setRenamingFolderId(f.id)}
                   onDelete={() => onConfirmDelete(`Delete folder "${f.name}"?`, async () => { await deleteFolder(col.id, f.id); onRefresh(); })} />
           ))}
@@ -275,7 +278,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
 
 export default function CollectionsSidebar({
   collections, history, historyLoading, replayingId,
-  onRefresh, onLoadRequest, onLoadExample, onLoadHistory, onReplay, onDiff, onSaveFromHistory, onHistoryCleared,
+  onRefresh, onLoadRequest, onLoadExample, onLoadHistory, onReplay, onDiff, onSaveFromHistory, onHistoryCleared, onNewRequest,
 }: Props) {
   const [tab, setTab] = useState<"collections" | "history">("collections");
   const [addingCollection, setAddingCollection] = useState(false);
@@ -378,6 +381,7 @@ export default function CollectionsSidebar({
                     onShare={setShareUrl}
                     onLoadExample={onLoadExample}
                     onMoveRequest={setMoveTarget}
+                    onNewRequest={onNewRequest}
                     onConfirmDelete={(label, action, message) => setConfirmDelete({ label, action, message })} />
             ))}
           </div>
