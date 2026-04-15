@@ -53,52 +53,42 @@ body {
   inherits: false;
 }
 
-@property --angle2 {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-
-@keyframes spin-cw  { to { --angle:  360deg; } }
-@keyframes spin-ccw { to { --angle2: -360deg; } }
+@keyframes spin-cw { to { --angle: 360deg; } }
 
 .auth-card-border {
   position: relative;
   border-radius: 1rem;
-  padding: 2px;
-  background: transparent;
-  animation: spin-cw 3s linear infinite, spin-ccw 3s linear infinite;
+  background: var(--bg-card);
 }
 
 .auth-card-border::before,
 .auth-card-border::after {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: -2px;
   border-radius: 1rem;
-  padding: 2px;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
+  padding: 2px;
   pointer-events: none;
-}
-
-.auth-card-border::before {
-  background: conic-gradient(from var(--angle), transparent 80%, #16a34a, #4ade80, transparent);
   animation: spin-cw 3s linear infinite;
 }
 
+.auth-card-border::before {
+  background: conic-gradient(from var(--angle), transparent 85%, #4ade80, #16a34a, transparent);
+}
+
 .auth-card-border::after {
-  background: conic-gradient(from var(--angle2), transparent 80%, #16a34a, #4ade80, transparent);
-  animation: spin-ccw 3s linear infinite;
+  background: conic-gradient(from calc(var(--angle) + 180deg), transparent 85%, #4ade80, #16a34a, transparent);
 }
 
 .dark .auth-card-border::before {
-  background: conic-gradient(from var(--angle), transparent 80%, #22c55e, #86efac, transparent);
+  background: conic-gradient(from var(--angle), transparent 85%, #86efac, #22c55e, transparent);
 }
 
 .dark .auth-card-border::after {
-  background: conic-gradient(from var(--angle2), transparent 80%, #22c55e, #86efac, transparent);
+  background: conic-gradient(from calc(var(--angle) + 180deg), transparent 85%, #86efac, #22c55e, transparent);
 }
 
 .auth-card-inner {
