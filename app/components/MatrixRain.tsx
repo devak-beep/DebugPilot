@@ -16,7 +16,7 @@ export default function MatrixRain() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       cols = Math.floor(canvas.width / fontSize);
-      drops = Array(cols).fill(1);
+      drops = Array.from({ length: cols }, () => Math.floor(Math.random() * canvas.height / fontSize));
     }
 
     resize();
