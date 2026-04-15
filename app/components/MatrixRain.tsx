@@ -9,8 +9,8 @@ export default function MatrixRain() {
     const ctx = canvas.getContext("2d")!;
     const chars = "01{}[]()<>/\\|=+-*&%$#@!?;:ABCDEFabcdefGETPOSTDELETE";
     const fontSize = 13;
-    let cols: number[];
-    let drops: number[];
+    let cols = 0;
+    let drops: number[] = [];
 
     function resize() {
       canvas.width = window.innerWidth;
