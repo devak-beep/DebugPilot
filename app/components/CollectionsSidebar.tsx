@@ -121,7 +121,7 @@ function InlineInput({ defaultValue = "", onConfirm, onCancel, placeholder }: {
 
 function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefresh, onShare, onLoadExample }: {
   req: SavedRequest; onLoad: () => void; onDelete: () => void; onRename: () => void;
-  onConfirmDelete: (label: string, action: () => Promise<void>) => void; onRefresh: () => void;
+  onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void; onRefresh: () => void;
   onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -163,7 +163,7 @@ function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefre
 function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, onRefresh, onConfirmDelete, onShare, onLoadExample }: {
   folder: Folder; collectionId: string; onLoadRequest: (r: SavedRequest) => void;
   onDelete: () => void; onRename: () => void; onRefresh: () => void;
-  onConfirmDelete: (label: string, action: () => Promise<void>) => void;
+  onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void;
   onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -192,7 +192,8 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
                     onRename={() => setRenamingId(r.id)}
                     onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
                     onLoadExample={onLoadExample}
-                    onDelete={() => onConfirmDelete(`Delete "${r.name}"?`, async () => { await deleteSavedRequest(r.id); onRefresh(); })} />
+                    onDelete={() => onConfirmDelete(`Delete "${r.name}"?`, async () => { await deleteSavedRequest(r.id); onRefresh(); },
+                      r.examples?.length > 0 ? `This action cannot be undone. All ${r.examples.length} saved response${r.examples.length > 1 ? "s" : ""} will also be permanently deleted.` : undefined)} />
             ))}
         </div>
       )}
@@ -202,7 +203,7 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
 
 function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRename, onShare, onLoadExample }: {
   col: Collection; onLoadRequest: (r: SavedRequest) => void; onRefresh: () => void;
-  onConfirmDelete: (label: string, action: () => Promise<void>) => void;
+  onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void;
   onRename: () => void; onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -238,7 +239,8 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
                   onRename={() => setRenamingRequestId(r.id)}
                   onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
                   onLoadExample={onLoadExample}
-                  onDelete={() => onConfirmDelete(`Delete "${r.name}"?`, async () => { await deleteSavedRequest(r.id); onRefresh(); })} />
+                  onDelete={() => onConfirmDelete(`Delete "${r.name}"?`, async () => { await deleteSavedRequest(r.id); onRefresh(); },
+                    r.examples?.length > 0 ? `This action cannot be undone. All ${r.examples.length} saved response${r.examples.length > 1 ? "s" : ""} will also be permanently deleted.` : undefined)} />
           ))}
           {col.folders.map((f) => (
             renamingFolderId === f.id
@@ -269,7 +271,7 @@ export default function CollectionsSidebar({
   const [renamingCollectionId, setRenamingCollectionId] = useState<string | null>(null);
   const [diffSelection, setDiffSelection] = useState<string[]>([]);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<{ label: string; action: () => Promise<void> } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ label: string; action: () => Promise<void>; message?: string } | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [openingLink, setOpeningLink] = useState(false);
   const [pastedLink, setPastedLink] = useState("");
@@ -363,7 +365,7 @@ export default function CollectionsSidebar({
                     onRename={() => setRenamingCollectionId(col.id)}
                     onShare={setShareUrl}
                     onLoadExample={onLoadExample}
-                    onConfirmDelete={(label, action) => setConfirmDelete({ label, action })} />
+                    onConfirmDelete={(label, action, message) => setConfirmDelete({ label, action, message })} />
             ))}
           </div>
         </>
@@ -441,7 +443,8 @@ export default function CollectionsSidebar({
           onCancel={() => setConfirmClear(false)} />
       )}
       {confirmDelete && (
-        <ConfirmModal title={confirmDelete.label} message="This action cannot be undone."
+        <ConfirmModal title={confirmDelete.label}
+          message={confirmDelete.message ?? "This action cannot be undone."}
           confirmLabel="Delete" cancelLabel="Cancel" danger
           onConfirm={async () => { await confirmDelete.action(); setConfirmDelete(null); }}
           onCancel={() => setConfirmDelete(null)} />
