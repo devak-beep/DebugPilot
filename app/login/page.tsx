@@ -51,6 +51,7 @@ export default function LoginPage() {
                 <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••" required className={inputCls + " pr-10"}
                   style={{ background: "var(--bg-input)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                {password && (
                 <button type="button" onClick={() => setShowPassword(v => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center"
                   style={{ color: "var(--text-secondary)" }}>
@@ -64,6 +65,7 @@ export default function LoginPage() {
                     </svg>
                   )}
                 </button>
+                )}
               </div>
             </div>
 
