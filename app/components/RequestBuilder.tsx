@@ -164,7 +164,7 @@ function parseCurl(raw: string): Partial<{ method: string; url: string; headers:
 
 export default function RequestBuilder({ onSubmit, onSave, isLoading = false, prefill = null }: {
   onSubmit: (data: RequestData) => void;
-  onSave?: () => void;
+  onSave?: (data: RequestData) => void;
   isLoading?: boolean;
   prefill?: RequestData | null;
 }) {
@@ -343,7 +343,13 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
             {isLoading ? "Sending..." : "Send"}
           </button>
           {onSave && (
-            <button type="button" onClick={onSave}
+            <button type="button" onClick={() => {
+              const builtHeaders = buildHeaders();
+              const ct = getContentTypeHeader();
+              if (ct && !builtHeaders.some(h => h.key.toLowerCase() === "content-type"))
+                builtHeaders.push({ key: "Content-Type", value: ct });
+              onSave({ url: buildFinalUrl(), method, headers: builtHeaders, body: buildBody(), formData: buildFormData() });
+            }}
               className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               style={{ background: "var(--bg-input)", color: "var(--accent)", border: "1px solid var(--border)" }}>
               💾 Save

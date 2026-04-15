@@ -296,16 +296,16 @@ export default function Home() {
             onSubmit={(data) => handleRequestSubmit(activeTab.id, data)}
             isLoading={activeTab.isLoading}
             prefill={activeTab.prefill}
-            onSave={activeTab.currentRequest ? async () => {
-              if (activeTab.savedRequestId && activeTab.currentRequest) {
+            onSave={async (data) => {
+              if (activeTab.savedRequestId) {
                 const h: Record<string, string> = {};
-                activeTab.currentRequest.headers.forEach(({ key, value }) => { if (key.trim()) h[key] = value; });
-                await updateRequestData(activeTab.savedRequestId, { method: activeTab.currentRequest.method, url: activeTab.currentRequest.url, headers: h, body: activeTab.currentRequest.body });
+                data.headers.forEach(({ key, value }) => { if (key.trim()) h[key] = value; });
+                await updateRequestData(activeTab.savedRequestId, { method: data.method, url: data.url, headers: h, body: data.body });
                 loadCollections();
               } else {
-                setSaveTarget({ request: activeTab.currentRequest! });
+                setSaveTarget({ request: data });
               }
-            } : undefined}
+            }}
           />
 
           {activeTab.isLoading && (
