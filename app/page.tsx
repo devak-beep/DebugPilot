@@ -67,18 +67,8 @@ export default function Home() {
     setHydrated(true);
   }, []);
 
-  useEffect(() => {
-    const token = searchParams.get("import");
-    if (!token) return;
-    fetch(`/api/share/${token}`).then(r => r.json()).then(data => {
-      if (data.method && data.url) {
-        const headers = Object.entries(data.headers ?? {}).map(([key, value]) => ({ key, value: value as string }));
-        openInNewTab({ url: data.url, method: data.method, headers, body: data.body ?? null }, data.name);
-        window.history.replaceState({}, "", "/");
-      }
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  const importToken = searchParams.get("import");
+
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [replayingId, setReplayingId] = useState<string | null>(null);
@@ -128,6 +118,18 @@ export default function Home() {
   }, []);
 
   useEffect(() => { loadHistory(); loadCollections(); }, [loadHistory, loadCollections]);
+
+  useEffect(() => {
+    if (!importToken) return;
+    fetch(`/api/share/${importToken}`).then(r => r.json()).then(data => {
+      if (data.method && data.url) {
+        const headers = Object.entries(data.headers ?? {}).map(([key, value]) => ({ key, value: value as string }));
+        openInNewTab({ url: data.url, method: data.method, headers, body: data.body ?? null }, data.name);
+        window.history.replaceState({}, "", "/");
+      }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [importToken]);
 
   useEffect(() => {
     localStorage.setItem("dp_tabs", JSON.stringify(tabs));
