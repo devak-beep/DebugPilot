@@ -10,6 +10,7 @@ import { Logo } from "./components/BrandLogo";
 import CollectionsSidebar from "./components/CollectionsSidebar";
 import SaveRequestModal from "./components/SaveRequestModal";
 import SaveExampleModal from "./components/SaveExampleModal";
+import AppSkeleton from "./components/AppSkeleton";
 import { executeRequest, fetchHistory, fetchHistoryEntry, fetchCollections } from "@/lib/api";
 import type { ApiResponse, HistoryEntry, RequestData, Collection, SavedRequest } from "@/lib/api";
 
@@ -177,6 +178,14 @@ export default function Home() {
     openInNewTab(prefill, req.name, req.id);
   };
 
+  const handleLoadExample = (ex: import("@/lib/api").SavedExample) => {
+    let body: unknown;
+    try { body = JSON.parse(ex.response); } catch { body = ex.response; }
+    updateTab(activeTabId, {
+      response: { status: ex.status, statusText: ex.statusText, body, timeTaken: ex.timeTaken },
+    });
+  };
+
   const handleSaveFromHistory = (entry: HistoryEntry) => {
     let parsedHeaders: Record<string, string> = {};
     try { parsedHeaders = JSON.parse(entry.headers); } catch {}
@@ -200,6 +209,8 @@ export default function Home() {
 
   const cardStyle = { background: "var(--bg-card)", border: "1px solid var(--border)" };
 
+  if (!hydrated) return <AppSkeleton />;
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-base)" }}>
 
@@ -208,6 +219,7 @@ export default function Home() {
         <CollectionsSidebar
           collections={collections} history={history} historyLoading={historyLoading} replayingId={replayingId}
           onRefresh={loadCollections} onLoadRequest={handleLoadSaved} onLoadHistory={handleLoadHistory}
+          onLoadExample={handleLoadExample}
           onReplay={handleReplay} onDiff={handleDiff} onSaveFromHistory={handleSaveFromHistory} onHistoryCleared={loadHistory}
         />
         <div onMouseDown={startResize} className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-[var(--accent)] transition-colors" style={{ opacity: 0.4 }} />

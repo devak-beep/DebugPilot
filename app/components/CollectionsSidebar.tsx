@@ -20,6 +20,7 @@ interface Props {
   replayingId: string | null;
   onRefresh: () => void;
   onLoadRequest: (req: SavedRequest) => void;
+  onLoadExample: (ex: SavedExample) => void;
   onLoadHistory: (entry: HistoryEntry) => void;
   onReplay: (entry: HistoryEntry) => void;
   onDiff: (a: HistoryEntry, b: HistoryEntry) => void;
@@ -38,10 +39,10 @@ function statusColor(s: number) {
   return "#ef4444";
 }
 
-function ExampleItem({ example, onDelete }: { example: SavedExample; onDelete: () => void }) {
+function ExampleItem({ example, onDelete, onLoad }: { example: SavedExample; onDelete: () => void; onLoad: () => void }) {
   return (
-    <div className="flex items-center gap-2 px-2 py-1 rounded group"
-      style={{ color: "var(--text-muted)" }}>
+    <div className="flex items-center gap-2 px-2 py-1 rounded group cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]"
+      style={{ color: "var(--text-muted)" }} onClick={onLoad}>
       <span className="text-xs font-bold shrink-0" style={{ color: statusColor(example.status) }}>{example.status}</span>
       <span className="flex-1 text-xs truncate">{example.name}</span>
       <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -118,10 +119,10 @@ function InlineInput({ defaultValue = "", onConfirm, onCancel, placeholder }: {
   );
 }
 
-function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefresh, onShare }: {
+function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefresh, onShare, onLoadExample }: {
   req: SavedRequest; onLoad: () => void; onDelete: () => void; onRename: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>) => void; onRefresh: () => void;
-  onShare: (url: string) => void;
+  onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
 }) {
   const [open, setOpen] = useState(false);
   const hasExamples = req.examples?.length > 0;
@@ -150,6 +151,7 @@ function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefre
         <div className="ml-4 border-l pl-2 space-y-0.5" style={{ borderColor: "var(--border)" }}>
           {req.examples.map(ex => (
             <ExampleItem key={ex.id} example={ex}
+              onLoad={() => onLoadExample(ex)}
               onDelete={() => onConfirmDelete(`Delete example "${ex.name}"?`, async () => { await deleteExample(req.id, ex.id); onRefresh(); })} />
           ))}
         </div>
@@ -158,11 +160,11 @@ function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefre
   );
 }
 
-function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, onRefresh, onConfirmDelete, onShare }: {
+function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, onRefresh, onConfirmDelete, onShare, onLoadExample }: {
   folder: Folder; collectionId: string; onLoadRequest: (r: SavedRequest) => void;
   onDelete: () => void; onRename: () => void; onRefresh: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>) => void;
-  onShare: (url: string) => void;
+  onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -189,6 +191,7 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
                 : <RequestItem key={r.id} req={r} onLoad={() => onLoadRequest(r)}
                     onRename={() => setRenamingId(r.id)}
                     onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
+                    onLoadExample={onLoadExample}
                     onDelete={() => onConfirmDelete(`Delete "${r.name}"?`, async () => { await deleteSavedRequest(r.id); onRefresh(); })} />
             ))}
         </div>
@@ -197,10 +200,10 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
   );
 }
 
-function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRename, onShare }: {
+function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRename, onShare, onLoadExample }: {
   col: Collection; onLoadRequest: (r: SavedRequest) => void; onRefresh: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>) => void;
-  onRename: () => void; onShare: (url: string) => void;
+  onRename: () => void; onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [addingFolder, setAddingFolder] = useState(false);
@@ -234,6 +237,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
               : <RequestItem key={r.id} req={r} onLoad={() => onLoadRequest(r)}
                   onRename={() => setRenamingRequestId(r.id)}
                   onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
+                  onLoadExample={onLoadExample}
                   onDelete={() => onConfirmDelete(`Delete "${r.name}"?`, async () => { await deleteSavedRequest(r.id); onRefresh(); })} />
           ))}
           {col.folders.map((f) => (
@@ -243,6 +247,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
                   onConfirm={async (name) => { await renameFolder(col.id, f.id, name); setRenamingFolderId(null); onRefresh(); }} />
               : <FolderItem key={f.id} folder={f} collectionId={col.id} onLoadRequest={onLoadRequest}
                   onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
+                  onLoadExample={onLoadExample}
                   onRename={() => setRenamingFolderId(f.id)}
                   onDelete={() => onConfirmDelete(`Delete folder "${f.name}"?`, async () => { await deleteFolder(col.id, f.id); onRefresh(); })} />
           ))}
@@ -257,7 +262,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
 
 export default function CollectionsSidebar({
   collections, history, historyLoading, replayingId,
-  onRefresh, onLoadRequest, onLoadHistory, onReplay, onDiff, onSaveFromHistory, onHistoryCleared,
+  onRefresh, onLoadRequest, onLoadExample, onLoadHistory, onReplay, onDiff, onSaveFromHistory, onHistoryCleared,
 }: Props) {
   const [tab, setTab] = useState<"collections" | "history">("collections");
   const [addingCollection, setAddingCollection] = useState(false);
@@ -357,6 +362,7 @@ export default function CollectionsSidebar({
                 : <CollectionItem key={col.id} col={col} onLoadRequest={onLoadRequest} onRefresh={onRefresh}
                     onRename={() => setRenamingCollectionId(col.id)}
                     onShare={setShareUrl}
+                    onLoadExample={onLoadExample}
                     onConfirmDelete={(label, action) => setConfirmDelete({ label, action })} />
             ))}
           </div>
