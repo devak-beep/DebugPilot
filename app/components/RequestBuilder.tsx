@@ -118,6 +118,50 @@ const textareaStyle = {
 
 function mkRow(key = "", value = ""): KVRow { return { key, value, description: "", enabled: true }; }
 
+function parseCurl(raw: string): Partial<{ method: string; url: string; headers: KVRow[]; body: string }> | null {
+  try {
+    // normalize line continuations and collapse whitespace
+    const s = raw.replace(/\\\n/g, " ").replace(/\s+/g, " ").trim();
+    if (!s.startsWith("curl")) return null;
+
+    const result: { method: string; url: string; headers: KVRow[]; body: string } = {
+      method: "GET", url: "", headers: [], body: "",
+    };
+
+    // tokenize respecting quotes
+    const tokens: string[] = [];
+    let cur = "", inQ: string | null = null;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (inQ) { if (c === inQ) inQ = null; else cur += c; }
+      else if (c === '"' || c === "'") inQ = c;
+      else if (c === " ") { if (cur) { tokens.push(cur); cur = ""; } }
+      else cur += c;
+    }
+    if (cur) tokens.push(cur);
+
+    for (let i = 1; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (t === "-X" || t === "--request") { result.method = tokens[++i]; }
+      else if (t === "-H" || t === "--header") {
+        const h = tokens[++i]; const colon = h.indexOf(":");
+        if (colon > 0) result.headers.push(mkRow(h.slice(0, colon).trim(), h.slice(colon + 1).trim()));
+      }
+      else if (t === "-d" || t === "--data" || t === "--data-raw" || t === "--data-binary") {
+        result.body = tokens[++i];
+        if (result.method === "GET") result.method = "POST";
+      }
+      else if (t === "-u" || t === "--user") {
+        const [u, p = ""] = tokens[++i].split(":");
+        result.headers.push(mkRow("Authorization", `Basic ${btoa(`${u}:${p}`)}`));
+      }
+      else if (!t.startsWith("-") && !result.url) result.url = t;
+    }
+
+    return result.url ? result : null;
+  } catch { return null; }
+}
+
 export default function RequestBuilder({ onSubmit, onSave, isLoading = false, prefill = null }: {
   onSubmit: (data: RequestData) => void;
   onSave?: () => void;
@@ -149,6 +193,24 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
   const [digestUser, setDigestUser] = useState("");
   const [digestPass, setDigestPass] = useState("");
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [showCurlImport, setShowCurlImport] = useState(false);
+  const [curlInput, setCurlInput] = useState("");
+  const [curlError, setCurlError] = useState<string | null>(null);
+
+  const handleCurlImport = () => {
+    const parsed = parseCurl(curlInput);
+    if (!parsed || !parsed.url) { setCurlError("Could not parse cURL. Make sure it starts with 'curl'."); return; }
+    setUrl(parsed.url);
+    if (parsed.method) setMethod(parsed.method);
+    if (parsed.headers?.length) setHeaders([...parsed.headers, mkRow()]);
+    if (parsed.body) {
+      try { JSON.parse(parsed.body); setBodyType("json"); setBodyJson(parsed.body); }
+      catch { setBodyType("text"); setBodyText(parsed.body); }
+    }
+    setShowCurlImport(false);
+    setCurlInput("");
+    setCurlError(null);
+  };
 
   useEffect(() => { if (method === "GET" || method === "HEAD") setBodyType("none"); }, [method]);
 
@@ -287,6 +349,12 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
               💾 Save
             </button>
           )}
+          <button type="button" onClick={() => { setShowCurlImport(true); setCurlError(null); }}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            style={{ background: "var(--bg-input)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
+            title="Import from cURL">
+            cURL
+          </button>
         </div>
 
         {/* Tabs */}
@@ -464,6 +532,43 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
           )}
         </div>
       </form>
+
+      {showCurlImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+          onClick={() => setShowCurlImport(false)}>
+          <div className="w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 pt-5 pb-4">
+              <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>Import from cURL</h2>
+              <button onClick={() => setShowCurlImport(false)} className="text-sm" style={{ color: "var(--text-muted)" }}>✕</button>
+            </div>
+            <div style={{ height: "1px", background: "var(--border)" }} />
+            <div className="px-6 py-4 space-y-3">
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Paste a cURL command below.</p>
+              <textarea value={curlInput} onChange={e => { setCurlInput(e.target.value); setCurlError(null); }}
+                rows={6} placeholder={`curl -X POST https://api.example.com/users \\\n  -H "Content-Type: application/json" \\\n  -d '{"name":"John"}'`}
+                className="w-full px-3 py-2 rounded-lg text-sm font-mono focus:outline-none resize-none"
+                style={{ background: "var(--bg-input)", border: `1px solid ${curlError ? "#f87171" : "var(--border)"}`, color: "var(--text-primary)" }} />
+              {curlError && <p className="text-xs" style={{ color: "#f87171" }}>{curlError}</p>}
+            </div>
+            <div style={{ height: "1px", background: "var(--border)" }} />
+            <div className="flex gap-3 px-6 py-4">
+              <button onClick={() => setShowCurlImport(false)}
+                className="flex-1 py-2 rounded-lg text-sm font-medium"
+                style={{ background: "var(--bg-input)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+                Cancel
+              </button>
+              <button onClick={handleCurlImport} disabled={!curlInput.trim()}
+                className="flex-1 py-2 rounded-lg text-sm font-bold"
+                style={{ background: "var(--accent)", color: "var(--accent-text)", opacity: curlInput.trim() ? 1 : 0.5 }}>
+                Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
