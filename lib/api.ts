@@ -178,7 +178,9 @@ export async function renameSavedRequest(id: string, name: string) {
   await fetch(`/api/saved-requests/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
 }
 
-export async function moveRequest(id: string, collectionId: string, folderId: string | null) {
+export async function updateRequestData(id: string, data: { method: string; url: string; headers: Record<string, string>; body: string | null }) {
+  await fetch(`/api/saved-requests/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+}
   await fetch(`/api/saved-requests/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ collectionId, folderId }) });
 }
 

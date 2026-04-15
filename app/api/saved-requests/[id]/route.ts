@@ -20,6 +20,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await db.execute({ sql: 'UPDATE SavedRequest SET name = ? WHERE id = ? AND userId = ?', args: [body.name, id, session.user.id] })
   } else if (body.collectionId !== undefined) {
     await db.execute({ sql: 'UPDATE SavedRequest SET collectionId = ?, folderId = ? WHERE id = ? AND userId = ?', args: [body.collectionId, body.folderId ?? null, id, session.user.id] })
+  } else if (body.method !== undefined) {
+    await db.execute({ sql: 'UPDATE SavedRequest SET method = ?, url = ?, headers = ?, body = ? WHERE id = ? AND userId = ?', args: [body.method, body.url, JSON.stringify(body.headers ?? {}), body.body ?? null, id, session.user.id] })
   }
   return NextResponse.json({ ok: true })
 }

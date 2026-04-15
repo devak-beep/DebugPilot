@@ -10,7 +10,7 @@ interface Props {
   defaultName?: string;
   defaultCollectionId?: string;
   defaultFolderId?: string;
-  onSaved: (name: string) => void;
+  onSaved: (name: string, saved?: import("@/lib/api").SavedRequest) => void;
   onClose: () => void;
 }
 
@@ -28,7 +28,7 @@ export default function SaveRequestModal({ request, collections, defaultName, de
   const handleSave = async () => {
     if (!name.trim() || !collectionId) return;
     setSaving(true);
-    await saveRequest({
+    const saved = await saveRequest({
       name: name.trim(),
       method: request.method,
       url: request.url,
@@ -38,7 +38,7 @@ export default function SaveRequestModal({ request, collections, defaultName, de
       folderId: folderId || undefined,
     });
     setSaving(false);
-    onSaved(name);
+    onSaved(name, saved);
     onClose();
   };
 

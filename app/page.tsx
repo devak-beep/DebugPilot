@@ -11,7 +11,7 @@ import CollectionsSidebar from "./components/CollectionsSidebar";
 import SaveRequestModal from "./components/SaveRequestModal";
 import SaveExampleModal from "./components/SaveExampleModal";
 import AppSkeleton from "./components/AppSkeleton";
-import { executeRequest, fetchHistory, fetchHistoryEntry, fetchCollections } from "@/lib/api";
+import { executeRequest, fetchHistory, fetchHistoryEntry, fetchCollections, updateRequestData } from "@/lib/api";
 import type { ApiResponse, HistoryEntry, RequestData, Collection, SavedRequest } from "@/lib/api";
 
 interface RequestTab {
@@ -296,7 +296,16 @@ export default function Home() {
             onSubmit={(data) => handleRequestSubmit(activeTab.id, data)}
             isLoading={activeTab.isLoading}
             prefill={activeTab.prefill}
-            onSave={activeTab.currentRequest ? () => setSaveTarget({ request: activeTab.currentRequest! }) : undefined}
+            onSave={activeTab.currentRequest ? async () => {
+              if (activeTab.savedRequestId && activeTab.currentRequest) {
+                const h: Record<string, string> = {};
+                activeTab.currentRequest.headers.forEach(({ key, value }) => { if (key.trim()) h[key] = value; });
+                await updateRequestData(activeTab.savedRequestId, { method: activeTab.currentRequest.method, url: activeTab.currentRequest.url, headers: h, body: activeTab.currentRequest.body });
+                loadCollections();
+              } else {
+                setSaveTarget({ request: activeTab.currentRequest! });
+              }
+            } : undefined}
           />
 
           {activeTab.isLoading && (
@@ -325,7 +334,15 @@ export default function Home() {
           defaultCollectionId={saveTarget.defaultCollectionId}
           defaultFolderId={saveTarget.defaultFolderId}
           collections={collections}
-          onSaved={(name) => { updateTab(activeTab.id, { label: name, savedName: name }); loadCollections(); }}
+          onSaved={(name, saved) => {
+            if (saveTarget.defaultCollectionId && saved) {
+              // opened from folder context — open as a new tab
+              openInNewTab({ url: saved.url, method: saved.method, headers: [], body: saved.body }, name, saved.id);
+            } else {
+              updateTab(activeTab.id, { label: name, savedName: name });
+            }
+            loadCollections();
+          }}
           onClose={() => setSaveTarget(null)} />
       )}
 
