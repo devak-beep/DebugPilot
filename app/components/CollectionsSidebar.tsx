@@ -7,11 +7,12 @@ import {
   deleteCollection, deleteFolder, deleteSavedRequest,
   renameCollection, renameFolder, renameSavedRequest,
   deleteExample, getShareToken,
-  clearHistory,
+  clearHistory, moveRequest, duplicateRequest,
 } from "@/lib/api";
 import type { SavedExample } from "@/lib/api";
 import ConfirmModal from "./ConfirmModal";
 import ShareLinkModal from "./ShareLinkModal";
+import MoveRequestModal from "./MoveRequestModal";
 
 interface Props {
   collections: Collection[];
@@ -119,10 +120,11 @@ function InlineInput({ defaultValue = "", onConfirm, onCancel, placeholder }: {
   );
 }
 
-function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefresh, onShare, onLoadExample }: {
+function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefresh, onShare, onLoadExample, onDuplicate, onMove }: {
   req: SavedRequest; onLoad: () => void; onDelete: () => void; onRename: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void; onRefresh: () => void;
   onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
+  onDuplicate: () => void; onMove: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const hasExamples = req.examples?.length > 0;
@@ -143,6 +145,8 @@ function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefre
         )}
         <DotsMenu items={[
           { label: "✏️ Rename", onClick: onRename },
+          { label: "📋 Duplicate", onClick: onDuplicate },
+          { label: "📁 Move", onClick: onMove },
           { label: "🔗 Share", onClick: handleShare },
           { label: "🗑 Delete", danger: true, onClick: onDelete },
         ]} />
@@ -160,11 +164,12 @@ function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefre
   );
 }
 
-function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, onRefresh, onConfirmDelete, onShare, onLoadExample }: {
+function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, onRefresh, onConfirmDelete, onShare, onLoadExample, onMoveRequest }: {
   folder: Folder; collectionId: string; onLoadRequest: (r: SavedRequest) => void;
   onDelete: () => void; onRename: () => void; onRefresh: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void;
   onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
+  onMoveRequest: (r: SavedRequest) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -192,6 +197,8 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
                     onRename={() => setRenamingId(r.id)}
                     onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
                     onLoadExample={onLoadExample}
+                    onDuplicate={async () => { await duplicateRequest(r); onRefresh(); }}
+                    onMove={() => onMoveRequest(r)}
                     onDelete={() => onConfirmDelete(`Delete "${r.name}"?`, async () => { await deleteSavedRequest(r.id); onRefresh(); },
                       r.examples?.length > 0 ? `This action cannot be undone. All ${r.examples.length} saved response${r.examples.length > 1 ? "s" : ""} will also be permanently deleted.` : undefined)} />
             ))}
@@ -201,10 +208,11 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
   );
 }
 
-function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRename, onShare, onLoadExample }: {
+function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRename, onShare, onLoadExample, onMoveRequest }: {
   col: Collection; onLoadRequest: (r: SavedRequest) => void; onRefresh: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void;
   onRename: () => void; onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
+  onMoveRequest: (r: SavedRequest) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [addingFolder, setAddingFolder] = useState(false);
@@ -239,6 +247,8 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
                   onRename={() => setRenamingRequestId(r.id)}
                   onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
                   onLoadExample={onLoadExample}
+                  onDuplicate={async () => { await duplicateRequest(r); onRefresh(); }}
+                  onMove={() => onMoveRequest(r)}
                   onDelete={() => onConfirmDelete(`Delete "${r.name}"?`, async () => { await deleteSavedRequest(r.id); onRefresh(); },
                     r.examples?.length > 0 ? `This action cannot be undone. All ${r.examples.length} saved response${r.examples.length > 1 ? "s" : ""} will also be permanently deleted.` : undefined)} />
           ))}
@@ -250,6 +260,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
               : <FolderItem key={f.id} folder={f} collectionId={col.id} onLoadRequest={onLoadRequest}
                   onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
                   onLoadExample={onLoadExample}
+                  onMoveRequest={onMoveRequest}
                   onRename={() => setRenamingFolderId(f.id)}
                   onDelete={() => onConfirmDelete(`Delete folder "${f.name}"?`, async () => { await deleteFolder(col.id, f.id); onRefresh(); })} />
           ))}
@@ -273,6 +284,7 @@ export default function CollectionsSidebar({
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ label: string; action: () => Promise<void>; message?: string } | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [moveTarget, setMoveTarget] = useState<SavedRequest | null>(null);
   const [openingLink, setOpeningLink] = useState(false);
   const [pastedLink, setPastedLink] = useState("");
 
@@ -365,6 +377,7 @@ export default function CollectionsSidebar({
                     onRename={() => setRenamingCollectionId(col.id)}
                     onShare={setShareUrl}
                     onLoadExample={onLoadExample}
+                    onMoveRequest={setMoveTarget}
                     onConfirmDelete={(label, action, message) => setConfirmDelete({ label, action, message })} />
             ))}
           </div>
@@ -450,6 +463,15 @@ export default function CollectionsSidebar({
           onCancel={() => setConfirmDelete(null)} />
       )}
       {shareUrl && <ShareLinkModal url={shareUrl} onClose={() => setShareUrl(null)} />}
+      {moveTarget && (
+        <MoveRequestModal collections={collections}
+          onClose={() => setMoveTarget(null)}
+          onMove={async (collectionId, folderId) => {
+            await moveRequest(moveTarget.id, collectionId, folderId);
+            setMoveTarget(null);
+            onRefresh();
+          }} />
+      )}
     </div>
   );
 }

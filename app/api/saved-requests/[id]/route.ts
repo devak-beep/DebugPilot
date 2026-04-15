@@ -15,7 +15,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
-  const { name } = await req.json()
-  await db.execute({ sql: 'UPDATE SavedRequest SET name = ? WHERE id = ? AND userId = ?', args: [name, id, session.user.id] })
+  const body = await req.json()
+  if (body.name !== undefined) {
+    await db.execute({ sql: 'UPDATE SavedRequest SET name = ? WHERE id = ? AND userId = ?', args: [body.name, id, session.user.id] })
+  } else if (body.collectionId !== undefined) {
+    await db.execute({ sql: 'UPDATE SavedRequest SET collectionId = ?, folderId = ? WHERE id = ? AND userId = ?', args: [body.collectionId, body.folderId ?? null, id, session.user.id] })
+  }
   return NextResponse.json({ ok: true })
 }

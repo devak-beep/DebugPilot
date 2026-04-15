@@ -178,6 +178,16 @@ export async function renameSavedRequest(id: string, name: string) {
   await fetch(`/api/saved-requests/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
 }
 
+export async function moveRequest(id: string, collectionId: string, folderId: string | null) {
+  await fetch(`/api/saved-requests/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ collectionId, folderId }) });
+}
+
+export async function duplicateRequest(req: SavedRequest): Promise<SavedRequest> {
+  const headers: Record<string, string> = {};
+  try { Object.assign(headers, JSON.parse(req.headers)); } catch {}
+  return saveRequest({ name: `${req.name} (1)`, method: req.method, url: req.url, headers, body: req.body, collectionId: req.collectionId, folderId: req.folderId ?? undefined });
+}
+
 export async function renameCollection(id: string, name: string) {
   await fetch(`/api/collections/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
 }
