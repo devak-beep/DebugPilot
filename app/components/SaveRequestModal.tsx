@@ -64,32 +64,33 @@ export default function SaveRequestModal({ request, collections, defaultName, de
           <div>
             <label className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-secondary)" }}>Request Name</label>
             <input value={name} onChange={(e) => setName(e.target.value)}
-              className={inputCls} style={inputStyle} placeholder="e.g. Get Users" />
+              className={inputCls} style={inputStyle} placeholder="e.g. Get Users" autoFocus />
           </div>
 
-          {/* Collection picker */}
-          <div>
-            <label className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-secondary)" }}>Collection</label>
-            {collections.length === 0
-              ? <p className="text-xs italic" style={{ color: "var(--text-muted)" }}>No collections yet — create one in the sidebar first.</p>
-              : <select value={collectionId} onChange={(e) => { setCollectionId(e.target.value); setFolderId(""); }}
-                  className={inputCls} style={inputStyle}>
-                  {collections.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-            }
-          </div>
-
-          {/* Folder picker */}
-          {selectedCollection && selectedCollection.folders.length > 0 && (
+          {/* Collection + folder pickers — only when not pre-targeted */}
+          {!defaultCollectionId && (<>
             <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-secondary)" }}>Folder (optional)</label>
-              <select value={folderId} onChange={(e) => setFolderId(e.target.value)}
-                className={inputCls} style={inputStyle}>
-                <option value="">— No folder (root) —</option>
-                {selectedCollection.folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </select>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-secondary)" }}>Collection</label>
+              {collections.length === 0
+                ? <p className="text-xs italic" style={{ color: "var(--text-muted)" }}>No collections yet — create one in the sidebar first.</p>
+                : <select value={collectionId} onChange={(e) => { setCollectionId(e.target.value); setFolderId(""); }}
+                    className={inputCls} style={inputStyle}>
+                    {collections.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+              }
             </div>
-          )}
+
+            {selectedCollection && selectedCollection.folders.length > 0 && (
+              <div>
+                <label className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-secondary)" }}>Folder (optional)</label>
+                <select value={folderId} onChange={(e) => setFolderId(e.target.value)}
+                  className={inputCls} style={inputStyle}>
+                  <option value="">— No folder (root) —</option>
+                  {selectedCollection.folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                </select>
+              </div>
+            )}
+          </>)}
         </div>
 
         {/* Footer */}
