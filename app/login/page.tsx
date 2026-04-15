@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Logo } from "../components/BrandLogo";
 import ThemeToggle from "../components/ThemeToggle";
+import MatrixRain from "../components/MatrixRain";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,8 +30,9 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4"
       style={{ background: "var(--bg-base)" }}>
-      <div className="fixed top-4 right-4"><ThemeToggle /></div>
-      <div className="w-full max-w-sm">
+      <MatrixRain />
+      <div className="fixed top-4 right-4" style={{ zIndex: 10 }}><ThemeToggle /></div>
+      <div className="w-full max-w-sm" style={{ zIndex: 10, position: "relative" }}>
         <div className="auth-card-border shadow-lg">
         <div className="auth-card-inner p-8 space-y-5">
           <div className="flex justify-center pb-2">
