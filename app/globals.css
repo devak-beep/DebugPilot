@@ -46,6 +46,34 @@ body {
   font-family: var(--font-geist-sans), sans-serif;
 }
 
+/* Rotating gradient border for auth cards */
+@keyframes spin-border {
+  to { --angle: 360deg; }
+}
+
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.auth-card-border {
+  position: relative;
+  border-radius: 1rem;
+  padding: 2px;
+  background: conic-gradient(from var(--angle), transparent 75%, #16a34a, #4ade80, #16a34a, transparent);
+  animation: spin-border 3s linear infinite;
+}
+
+.dark .auth-card-border {
+  background: conic-gradient(from var(--angle), transparent 75%, #22c55e, #86efac, #22c55e, transparent);
+}
+
+.auth-card-inner {
+  border-radius: calc(1rem - 2px);
+  background: var(--bg-card);
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

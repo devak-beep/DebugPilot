@@ -30,8 +30,8 @@ export default function LoginPage() {
       style={{ background: "var(--bg-base)" }}>
       <div className="fixed top-4 right-4"><ThemeToggle /></div>
       <div className="w-full max-w-sm">
-        <div className="rounded-2xl shadow-lg p-8 space-y-5"
-          style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <div className="auth-card-border shadow-lg">
+        <div className="auth-card-inner p-8 space-y-5">
           <div className="flex justify-center pb-2">
             <Logo compact />
           </div>
@@ -69,6 +69,7 @@ export default function LoginPage() {
             Don&apos;t have an account?{" "}
             <Link href="/register" className="font-semibold" style={{ color: "var(--accent)" }}>Register</Link>
           </p>
+        </div>
         </div>
       </div>
     </div>

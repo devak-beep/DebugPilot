@@ -87,7 +87,8 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "var(--bg-base)" }}>
       <div className="fixed top-4 right-4"><ThemeToggle /></div>
       <div className="w-full max-w-sm">
-        <div className="rounded-2xl shadow-lg p-8 space-y-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <div className="auth-card-border shadow-lg">
+        <div className="auth-card-inner p-8 space-y-5">
           <div className="flex justify-center pb-2"><Logo compact /></div>
           {success ? (
             <div className="text-center py-6 space-y-2">
@@ -158,6 +159,7 @@ export default function RegisterPage() {
             <Link href="/login" className="font-semibold" style={{ color: "var(--accent)" }}>Sign In</Link>
           </p>
           </>)}
+        </div>
         </div>
       </div>
     </div>
