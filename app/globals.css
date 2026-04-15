@@ -46,54 +46,36 @@ body {
   font-family: var(--font-geist-sans), sans-serif;
 }
 
-/* Rotating gradient border for auth cards */
-@property --angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
+/* Auth card — scanning line effect */
+@keyframes scan {
+  0%   { top: 0%; opacity: 1; }
+  90%  { top: 100%; opacity: 1; }
+  100% { top: 100%; opacity: 0; }
 }
-
-@keyframes spin-cw { to { --angle: 360deg; } }
 
 .auth-card-border {
   position: relative;
   border-radius: 1rem;
-  background: var(--bg-card);
-}
-
-.auth-card-border::before,
-.auth-card-border::after {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border-radius: 1rem;
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  padding: 2px;
-  pointer-events: none;
-  animation: spin-cw 3s linear infinite;
+  border: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .auth-card-border::before {
-  background: conic-gradient(from var(--angle), transparent 85%, #4ade80, #16a34a, transparent);
-}
-
-.auth-card-border::after {
-  background: conic-gradient(from calc(var(--angle) + 180deg), transparent 85%, #4ade80, #16a34a, transparent);
-}
-
-.dark .auth-card-border::before {
-  background: conic-gradient(from var(--angle), transparent 85%, #86efac, #22c55e, transparent);
-}
-
-.dark .auth-card-border::after {
-  background: conic-gradient(from calc(var(--angle) + 180deg), transparent 85%, #86efac, #22c55e, transparent);
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: scan 2.5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .auth-card-inner {
   position: relative;
-  border-radius: calc(1rem - 2px);
+  z-index: 2;
+  border-radius: calc(1rem - 1px);
   background: var(--bg-card);
 }
 
