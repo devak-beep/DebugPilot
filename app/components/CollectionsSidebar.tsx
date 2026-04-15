@@ -124,7 +124,8 @@ function InlineInput({ defaultValue = "", onConfirm, onCancel, placeholder }: {
 function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefresh, onShare, onLoadExample, onDuplicate, onMove }: {
   req: SavedRequest; onLoad: () => void; onDelete: () => void; onRename: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void; onRefresh: () => void;
-  onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
+  onShare: (url: string, reqData: { method: string; url: string; headers: Record<string, string>; body: string | null }) => void;
+  onLoadExample: (ex: SavedExample) => void;
   onDuplicate: () => void; onMove: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -132,7 +133,9 @@ function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefre
 
   const handleShare = async () => {
     const token = await getShareToken(req.id);
-    onShare(`${window.location.origin}/share/${token}`);
+    let headers: Record<string, string> = {};
+    try { headers = JSON.parse(req.headers); } catch {}
+    onShare(`${window.location.origin}/share/${token}`, { method: req.method, url: req.url, headers, body: req.body });
   };
   return (
     <div>
@@ -169,7 +172,8 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
   folder: Folder; collectionId: string; onLoadRequest: (r: SavedRequest) => void;
   onDelete: () => void; onRename: () => void; onRefresh: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void;
-  onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
+  onShare: (url: string, reqData: { method: string; url: string; headers: Record<string, string>; body: string | null }) => void;
+  onLoadExample: (ex: SavedExample) => void;
   onMoveRequest: (r: SavedRequest) => void; onNewRequest: () => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -213,7 +217,8 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
 function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRename, onShare, onLoadExample, onMoveRequest, onNewRequest }: {
   col: Collection; onLoadRequest: (r: SavedRequest) => void; onRefresh: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void;
-  onRename: () => void; onShare: (url: string) => void; onLoadExample: (ex: SavedExample) => void;
+  onRename: () => void; onShare: (url: string, reqData: { method: string; url: string; headers: Record<string, string>; body: string | null }) => void;
+  onLoadExample: (ex: SavedExample) => void;
   onMoveRequest: (r: SavedRequest) => void; onNewRequest: (collectionId: string, folderId: string | null) => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -287,6 +292,7 @@ export default function CollectionsSidebar({
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ label: string; action: () => Promise<void>; message?: string } | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareReq, setShareReq] = useState<{ method: string; url: string; headers: Record<string, string>; body: string | null } | undefined>();
   const [moveTarget, setMoveTarget] = useState<SavedRequest | null>(null);
   const [openingLink, setOpeningLink] = useState(false);
   const [pastedLink, setPastedLink] = useState("");
@@ -378,7 +384,7 @@ export default function CollectionsSidebar({
                     onConfirm={async (name) => { await renameCollection(col.id, name); setRenamingCollectionId(null); onRefresh(); }} />
                 : <CollectionItem key={col.id} col={col} onLoadRequest={onLoadRequest} onRefresh={onRefresh}
                     onRename={() => setRenamingCollectionId(col.id)}
-                    onShare={setShareUrl}
+                    onShare={(url, reqData) => { setShareUrl(url); setShareReq(reqData); }}
                     onLoadExample={onLoadExample}
                     onMoveRequest={setMoveTarget}
                     onNewRequest={onNewRequest}
@@ -466,7 +472,7 @@ export default function CollectionsSidebar({
           onConfirm={async () => { await confirmDelete.action(); setConfirmDelete(null); }}
           onCancel={() => setConfirmDelete(null)} />
       )}
-      {shareUrl && <ShareLinkModal url={shareUrl} onClose={() => setShareUrl(null)} />}
+      {shareUrl && <ShareLinkModal url={shareUrl} req={shareReq} onClose={() => { setShareUrl(null); setShareReq(undefined); }} />}
       {moveTarget && (
         <MoveRequestModal collections={collections}
           onClose={() => setMoveTarget(null)}

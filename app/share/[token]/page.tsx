@@ -24,9 +24,13 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         <div style={{ marginBottom: '2rem' }}>
           <div style={{ fontSize: '0.75rem', color: '#4ade80', marginBottom: '0.5rem' }}>DebugPilot · Shared Request</div>
           <h1 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#dcfce7', marginBottom: '0.5rem' }}>{req.name as string}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 'bold', color: methodColors[req.method as string] ?? '#9ca3af' }}>{req.method as string}</span>
-            <span style={{ color: '#86efac', wordBreak: 'break-all' }}>{req.url as string}</span>
+            <span style={{ color: '#86efac', wordBreak: 'break-all', flex: 1 }}>{req.url as string}</span>
+            <a href={`/?import=${token}`}
+              style={{ display: 'inline-block', padding: '0.4rem 1rem', background: '#16a34a', color: '#fff', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 'bold', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+              ⬇ Import to DebugPilot
+            </a>
           </div>
         </div>
 

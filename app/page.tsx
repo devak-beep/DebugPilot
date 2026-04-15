@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import RequestBuilder from "./components/RequestBuilder";
 import ResponseViewer from "./components/ResponseViewer";
 import DiffViewer from "./components/DiffViewer";
@@ -44,6 +45,7 @@ function newTab(prefill?: RequestData): RequestTab {
 export default function Home() {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const [tabs, setTabs] = useState<RequestTab[]>([newTab()]);
   const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0].id);
   const [hydrated, setHydrated] = useState(false);
@@ -64,6 +66,19 @@ export default function Home() {
     } catch {}
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    const token = searchParams.get("import");
+    if (!token) return;
+    fetch(`/api/share/${token}`).then(r => r.json()).then(data => {
+      if (data.method && data.url) {
+        const headers = Object.entries(data.headers ?? {}).map(([key, value]) => ({ key, value: value as string }));
+        openInNewTab({ url: data.url, method: data.method, headers, body: data.body ?? null }, data.name);
+        window.history.replaceState({}, "", "/");
+      }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [replayingId, setReplayingId] = useState<string | null>(null);
