@@ -21,12 +21,23 @@ interface Member {
   collectionName: string
 }
 
-type SettingsTab = 'access' | 'members'
+type SettingsTab = 'access' | 'members' | 'requests'
+
+interface AccessRequest {
+  id: string
+  requesterName: string
+  requesterEmail: string
+  type: string
+  targetId: string
+  token: string
+  createdAt: string
+}
 
 export default function SettingsPanel({ onClose, collections }: { onClose: () => void; collections: { id: string; name: string }[] }) {
-  const [tab, setTab] = useState<SettingsTab>('members')
+  const [tab, setTab] = useState<SettingsTab>('requests')
   const [grants, setGrants] = useState<Grant[]>([])
   const [members, setMembers] = useState<Member[]>([])
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [revokeTarget, setRevokeTarget] = useState<{ label: string; onConfirm: () => Promise<void> } | null>(null)
   const [acting, setActing] = useState(false)
@@ -35,6 +46,12 @@ export default function SettingsPanel({ onClose, collections }: { onClose: () =>
     const res = await fetch('/api/share-grants')
     const data = await res.json()
     setGrants(Array.isArray(data) ? data : [])
+  }, [])
+
+  const loadAccessRequests = useCallback(async () => {
+    const res = await fetch('/api/share-requests')
+    const data = await res.json()
+    setAccessRequests(Array.isArray(data) ? data : [])
   }, [])
 
   const loadMembers = useCallback(async () => {
@@ -49,8 +66,8 @@ export default function SettingsPanel({ onClose, collections }: { onClose: () =>
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([loadGrants(), loadMembers()]).finally(() => setLoading(false))
-  }, [loadGrants, loadMembers])
+    Promise.all([loadGrants(), loadMembers(), loadAccessRequests()]).finally(() => setLoading(false))
+  }, [loadGrants, loadMembers, loadAccessRequests])
 
   const revokeGrant = async (g: Grant) => {
     setActing(true)
@@ -66,6 +83,14 @@ export default function SettingsPanel({ onClose, collections }: { onClose: () =>
     setActing(false)
     setRevokeTarget(null)
     setMembers(prev => prev.filter(x => x.id !== m.id))
+  }
+
+  const actOnRequest = async (id: string, status: 'approved' | 'denied') => {
+    setActing(true)
+    await fetch(`/api/share-requests/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
+    setActing(false)
+    setAccessRequests(prev => prev.filter(r => r.id !== id))
+    if (status === 'approved') loadGrants()
   }
 
   const grouped = grants.reduce<Record<string, Grant[]>>((acc, g) => {
@@ -101,17 +126,52 @@ export default function SettingsPanel({ onClose, collections }: { onClose: () =>
 
           {/* Sub-tabs */}
           <div className="flex" style={{ borderBottom: '1px solid var(--border)' }}>
-            {(['members', 'access'] as SettingsTab[]).map(t => (
+            {(['requests', 'members', 'access'] as SettingsTab[]).map(t => (
               <button key={t} onClick={() => setTab(t)}
-                className="flex-1 py-2.5 text-xs font-semibold transition-colors"
+                className="flex-1 py-2.5 text-xs font-semibold transition-colors relative"
                 style={{ borderBottom: `2px solid ${tab === t ? 'var(--accent)' : 'transparent'}`, color: tab === t ? 'var(--accent)' : 'var(--text-muted)', background: 'transparent' }}>
-                {t === 'members' ? '👥 Invited Members' : '🔑 Approved Access'}
+                {t === 'requests' ? '🔔 Access Requests' : t === 'members' ? '👥 Members' : '🔑 Approved'}
+                {t === 'requests' && accessRequests.length > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold"
+                    style={{ background: 'var(--accent)', color: 'var(--accent-text)', fontSize: '0.6rem' }}>
+                    {accessRequests.length}
+                  </span>
+                )}
               </button>
             ))}
           </div>
 
           <div className="p-5 max-h-[60vh] overflow-y-auto space-y-4">
             {loading && <p className="text-xs text-center py-6 animate-pulse" style={{ color: 'var(--text-muted)' }}>Loading…</p>}
+
+            {/* Access Requests tab */}
+            {!loading && tab === 'requests' && (
+              <>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>People requesting access to your private shared links.</p>
+                {accessRequests.length === 0 && <p className="text-xs text-center py-4 italic" style={{ color: 'var(--text-muted)' }}>No pending requests.</p>}
+                {accessRequests.map(r => (
+                  <div key={r.id} className="rounded-lg p-3 space-y-2" style={{ background: 'var(--bg-input)', border: '1px solid var(--border)' }}>
+                    <div>
+                      <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{r.requesterName || r.requesterEmail}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.requesterEmail}</p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>Wants access to your shared <strong>{r.type}</strong></p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => actOnRequest(r.id, 'approved')} disabled={acting}
+                        className="flex-1 py-1.5 rounded text-xs font-bold"
+                        style={{ background: 'var(--accent)', color: 'var(--accent-text)', opacity: acting ? 0.6 : 1 }}>
+                        ✓ Approve
+                      </button>
+                      <button onClick={() => actOnRequest(r.id, 'denied')} disabled={acting}
+                        className="flex-1 py-1.5 rounded text-xs font-medium"
+                        style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)', opacity: acting ? 0.6 : 1 }}>
+                        ✕ Deny
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
 
             {/* Invited Members tab */}
             {!loading && tab === 'members' && (

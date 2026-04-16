@@ -14,8 +14,6 @@ import ConfirmModal from "./ConfirmModal";
 import ShareLinkModal from "./ShareLinkModal";
 import MoveRequestModal from "./MoveRequestModal";
 import ShareFolderCollectionModal from "./ShareFolderCollectionModal";
-import AccessRequestsPanel from "./AccessRequestsPanel";
-import SettingsPanel from "./SettingsPanel";
 
 interface Props {
   collections: Collection[];
@@ -314,8 +312,6 @@ export default function CollectionsSidebar({
   const [openingLink, setOpeningLink] = useState(false);
   const [pastedLink, setPastedLink] = useState("");
   const [shareFolderCol, setShareFolderCol] = useState<{ type: 'folder' | 'collection'; id: string; name: string } | null>(null);
-  const [showAccessRequests, setShowAccessRequests] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
 
   const toggleDiff = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -350,14 +346,6 @@ export default function CollectionsSidebar({
           <div className="flex items-center justify-between px-3 py-2 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>{collections.length} collection{collections.length !== 1 ? "s" : ""}</span>
             <div className="flex gap-1.5">
-              <button onClick={() => setShowSettings(true)}
-                className="text-xs px-2 py-1 rounded font-medium"
-                style={{ background: "var(--bg-input)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
-                title="Settings">⚙️</button>
-              <button onClick={() => setShowAccessRequests(true)}
-                className="text-xs px-2 py-1 rounded font-medium"
-                style={{ background: "var(--bg-input)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
-                title="Access requests">🔔</button>
               <button onClick={() => { setOpeningLink(o => !o); setPastedLink(""); }}
                 className="text-xs px-2 py-1 rounded font-medium"
                 style={{ background: "var(--bg-input)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
@@ -519,8 +507,6 @@ export default function CollectionsSidebar({
           targetName={shareFolderCol.name}
           onClose={() => setShareFolderCol(null)} />
       )}
-      {showAccessRequests && <AccessRequestsPanel onClose={() => setShowAccessRequests(false)} />}
-      {showSettings && <SettingsPanel collections={collections} onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
