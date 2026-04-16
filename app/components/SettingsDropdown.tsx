@@ -72,28 +72,27 @@ function AccessModal({ onClose, collections }: { onClose: () => void; collection
         <div className="w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
 
           {/* Header */}
-          <div className="px-5 pt-5 pb-0 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Sharing & Access</h2>
-              <button onClick={onClose} style={{ color: 'var(--text-muted)' }}>✕</button>
-            </div>
-            {/* Tabs */}
-            <div className="flex gap-1 pb-0">
-              {tabs.map(t => (
-                <button key={t.key} onClick={() => setTab(t.key)}
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-t-lg transition-colors"
-                  style={{
-                    background: tab === t.key ? 'var(--bg-base)' : 'transparent',
-                    color: tab === t.key ? 'var(--accent)' : 'var(--text-muted)',
-                    borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
-                  }}>
-                  {t.label}
-                  {t.count !== undefined && t.count > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'var(--accent)', color: 'var(--accent-text)', fontSize: '0.55rem' }}>{t.count}</span>
-                  )}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid var(--border)', background: 'color-mix(in srgb, var(--accent) 5%, var(--bg-card))' }}>
+            <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Sharing & Access</h2>
+            <button onClick={onClose} className="text-lg leading-none" style={{ color: 'var(--text-muted)' }}>✕</button>
+          </div>
+
+          {/* Tab bar */}
+          <div className="flex shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+            {tabs.map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold transition-colors"
+                style={{
+                  color: tab === t.key ? 'var(--accent)' : 'var(--text-muted)',
+                  borderBottom: `2px solid ${tab === t.key ? 'var(--accent)' : 'transparent'}`,
+                  background: 'transparent',
+                }}>
+                {t.label}
+                {t.count !== undefined && t.count > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'var(--accent)', color: 'var(--accent-text)', fontSize: '0.55rem', lineHeight: 1.4 }}>{t.count}</span>
+                )}
+              </button>
+            ))}
           </div>
 
           {/* Content */}
