@@ -2,11 +2,14 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from "next/server"
 import db from "@/lib/db"
 import bcrypt from "bcryptjs"
+import { validatePassword } from '@/lib/password'
 
 export async function POST(req: NextRequest) {
   const { email, password, resetToken } = await req.json()
   if (!email?.trim() || !password?.trim() || !resetToken)
     return NextResponse.json({ error: "All fields required" }, { status: 400 })
+  const pwErr = validatePassword(password)
+  if (pwErr) return NextResponse.json({ error: pwErr }, { status: 400 })
 
   // Consume the one-time reset token issued after OTP verification
   const now = new Date().toISOString()

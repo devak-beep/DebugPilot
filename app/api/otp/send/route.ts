@@ -5,16 +5,17 @@ import { sendOtpEmail } from "@/lib/email"
 
 export async function POST(req: NextRequest) {
   const { email, purpose } = await req.json()
-  if (!email || !["register", "reset"].includes(purpose))
+  if (!email || !["register", "reset", "email_change"].includes(purpose))
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
 
   if (purpose === "register") {
     const r = await db.execute({ sql: 'SELECT id FROM User WHERE email = ?', args: [email] })
     if (r.rows.length) return NextResponse.json({ error: "Email already registered" }, { status: 409 })
-  } else {
+  } else if (purpose === "reset") {
     const r = await db.execute({ sql: 'SELECT id FROM User WHERE email = ?', args: [email] })
     if (!r.rows.length) return NextResponse.json({ error: "No account with that email" }, { status: 404 })
   }
+  // email_change: no pre-check needed
 
   // Rate-limit: block resend if an OTP was issued within the last 60 seconds
   const recent = await db.execute({ sql: 'SELECT createdAt FROM OtpToken WHERE email = ? AND purpose = ? ORDER BY createdAt DESC LIMIT 1', args: [email, purpose] })

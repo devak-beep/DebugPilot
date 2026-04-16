@@ -6,6 +6,8 @@ import ThemeToggle from "../components/ThemeToggle";
 import { Logo } from "../components/BrandLogo";
 import OtpTimer from "../components/OtpTimer";
 import MatrixRain from "../components/MatrixRain";
+import PasswordInput from "../components/PasswordInput";
+import { validatePassword } from "@/lib/password";
 
 type Step = "form" | "otp";
 
@@ -41,6 +43,8 @@ export default function RegisterPage() {
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(""); setLoading(true);
+    const pwErr = validatePassword(password);
+    if (pwErr) { setError(pwErr); setLoading(false); return; }
     if (password !== confirmPassword) { setError("Passwords do not match"); setLoading(false); return; }
     const res = await fetch("/api/otp/send", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -113,13 +117,11 @@ export default function RegisterPage() {
               </div>
               <div>
                 <label className="text-xs font-semibold block mb-1" style={{ color: "var(--text-secondary)" }}>Password</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password" required className={inputCls} style={inputStyle} />
+                <PasswordInput value={password} onChange={setPassword} placeholder="Password" showStrength required className={inputCls} style={inputStyle} />
               </div>
               <div>
                 <label className="text-xs font-semibold block mb-1" style={{ color: "var(--text-secondary)" }}>Confirm Password</label>
-                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repeat password" required className={inputCls} style={inputStyle} />
+                <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder="Repeat password" required className={inputCls} style={inputStyle} />
               </div>
               {error && <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>{error}</p>}
               <button type="submit" disabled={loading} className="w-full py-2.5 rounded-lg text-sm font-bold transition-colors"

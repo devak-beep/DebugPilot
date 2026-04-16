@@ -5,6 +5,8 @@ import Link from "next/link";
 import ThemeToggle from "../components/ThemeToggle";
 import { Logo } from "../components/BrandLogo";
 import OtpTimer from "../components/OtpTimer";
+import PasswordInput from "../components/PasswordInput";
+import { validatePassword } from "@/lib/password";
 
 type Step = "email" | "otp" | "password";
 
@@ -68,7 +70,10 @@ export default function ForgotPasswordPage() {
   };
 
   const handleReset = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(""); setLoading(true);
+    e.preventDefault(); setError(""); 
+    const pwErr = validatePassword(password);
+    if (pwErr) { setError(pwErr); return; }
+    setLoading(true);
     const { res, data } = await post("/api/reset-password", { email, password, resetToken: resetTokenRef.current });
     setLoading(false);
     if (!res.ok) { setError(data.error); return; }
@@ -135,8 +140,7 @@ export default function ForgotPasswordPage() {
             <form onSubmit={handleReset} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold block mb-1" style={{ color: "var(--text-secondary)" }}>New Password</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                  placeholder="New password" required className={inputCls} style={inputStyle} />
+                <PasswordInput value={password} onChange={setPassword} placeholder="New password" showStrength required className={inputCls} style={inputStyle} />
               </div>
               {error && <ErrorBox msg={error} />}
               <button type="submit" disabled={loading} className="w-full py-2.5 rounded-lg text-sm font-bold transition-colors"

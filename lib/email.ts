@@ -5,12 +5,14 @@ const transporter = nodemailer.createTransport({
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 })
 
-export async function sendOtpEmail(to: string, otp: string, purpose: "register" | "reset") {
+export async function sendOtpEmail(to: string, otp: string, purpose: "register" | "reset" | "email_change") {
   const isRegister = purpose === "register"
-  const subject = isRegister ? "Verify your DebugPilot account" : "Reset your DebugPilot password"
-  const heading = isRegister ? "Confirm your email" : "Reset your password"
+  const subject = isRegister ? "Verify your DebugPilot account" : purpose === "email_change" ? "Confirm your new email" : "Reset your DebugPilot password"
+  const heading = isRegister ? "Confirm your email" : purpose === "email_change" ? "Confirm email change" : "Reset your password"
   const subtext = isRegister
     ? "Use the OTP below to complete your registration."
+    : purpose === "email_change"
+    ? "Use the OTP below to confirm your new email address."
     : "Use the OTP below to reset your password."
 
   const parts: string[] = []

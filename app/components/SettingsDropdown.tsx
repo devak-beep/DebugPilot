@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import ConfirmModal from './ConfirmModal'
+import ProfileModal from './ProfileModal'
 
 interface Grant { id: string; requesterId: string; requesterName: string; requesterEmail: string; type: string; targetId: string; targetName: string }
 interface Member { id: string; memberEmail: string; role: string; status: string; collectionId: string; collectionName: string }
@@ -23,7 +24,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 
 export default function SettingsDropdown({ collections, onSignOut }: { collections: { id: string; name: string }[]; onSignOut: () => void }) {
   const [open, setOpen] = useState(false)
-  const [modal, setModal] = useState<'requests' | 'members' | 'access' | null>(null)
+  const [modal, setModal] = useState<'requests' | 'members' | 'access' | 'profile' | null>(null)
   const [grants, setGrants] = useState<Grant[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([])
@@ -104,10 +105,11 @@ export default function SettingsDropdown({ collections, onSignOut }: { collectio
         {open && (
           <div className="absolute right-0 top-full mt-2 z-50 rounded-xl shadow-2xl overflow-hidden"
             style={{ width: '220px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <div className="px-4 py-2.5 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)', background: 'color-mix(in srgb, var(--accent) 6%, var(--bg-card))' }}>
-              <span className="text-xs font-bold" style={{ color: 'var(--accent)' }}>⚙️ Settings</span>
-              {loading && <span className="text-xs animate-pulse" style={{ color: 'var(--text-muted)' }}>…</span>}
+            <div className="px-4 py-2.5" style={{ borderBottom: '1px solid var(--border)', background: 'color-mix(in srgb, var(--accent) 6%, var(--bg-card))' }}>
+              {loading && <span className="text-xs animate-pulse" style={{ color: 'var(--text-muted)' }}>Loading…</span>}
+              {!loading && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Settings</span>}
             </div>
+            {item('👤 Profile', () => openModal('profile'))}
             {item('🔔 Access Requests', () => openModal('requests'), accessRequests.length)}
             {item('👥 Invited Members', () => openModal('members'))}
             {item('🔑 Approved Access', () => openModal('access'))}
@@ -121,6 +123,8 @@ export default function SettingsDropdown({ collections, onSignOut }: { collectio
           </div>
         )}
       </div>
+
+      {modal === 'profile' && <ProfileModal onClose={() => setModal(null)} />}
 
       {/* Access Requests modal */}
       {modal === 'requests' && (
