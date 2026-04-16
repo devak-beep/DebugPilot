@@ -16,9 +16,14 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ token:
   const member = r.rows[0]
   if (member.status === 'accepted') return NextResponse.redirect(new URL('/?invite=already_accepted', process.env.NEXTAUTH_URL ?? 'http://localhost:3000'))
 
-  // If logged in, bind the userId; otherwise redirect to login first
+  // If logged in, bind the userId; otherwise redirect to login/register first
   if (!session?.user?.id) {
-    return NextResponse.redirect(new URL(`/login?next=/api/invite/${token}`, process.env.NEXTAUTH_URL ?? 'http://localhost:3000'))
+    // Check if the invited email has an account
+    const userCheck = await db.execute({ sql: 'SELECT id FROM User WHERE email = ?', args: [(member.memberEmail as string).toLowerCase()] })
+    const dest = userCheck.rows.length
+      ? `/login?next=/api/invite/${token}`
+      : `/register?next=/api/invite/${token}`
+    return NextResponse.redirect(new URL(dest, process.env.NEXTAUTH_URL ?? 'http://localhost:3000'))
   }
 
   await db.execute({ sql: 'UPDATE CollectionMember SET status = ?, memberId = ?, inviteToken = NULL WHERE inviteToken = ?', args: ['accepted', session.user.id, token] })

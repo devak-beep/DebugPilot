@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import ThemeToggle from "../components/ThemeToggle";
 import { Logo } from "../components/BrandLogo";
@@ -13,6 +13,8 @@ type Step = "form" | "otp";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextUrl = searchParams.get("next") ?? "/login";
   const [step, setStep] = useState<Step>("form");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -85,7 +87,7 @@ export default function RegisterPage() {
     setLoading(false);
     if (!regRes.ok) { setError(regData.error); return; }
     setSuccess(true);
-    setTimeout(() => router.push("/login"), 2500);
+    setTimeout(() => router.push(nextUrl), 2500);
   };
 
   return (

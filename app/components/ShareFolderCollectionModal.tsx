@@ -28,6 +28,7 @@ export default function ShareFolderCollectionModal({ type, targetId, targetName,
   const [inviting, setInviting] = useState(false)
   const [inviteDone, setInviteDone] = useState(false)
   const [inviteError, setInviteError] = useState('')
+  const [inviteWarning, setInviteWarning] = useState('')
 
   const generate = async () => {
     setGenerating(true)
@@ -45,16 +46,18 @@ export default function ShareFolderCollectionModal({ type, targetId, targetName,
     setToken(null)
   }
 
-  const sendInvite = async () => {
+  const sendInvite = async (force = false) => {
     if (!inviteEmail.trim()) return
-    setInviting(true); setInviteError(''); setInviteDone(false)
+    setInviting(true); setInviteError(''); setInviteWarning(''); setInviteDone(false)
     const res = await fetch(`/api/collections/${targetId}/invite`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+      body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole, force }),
     })
+    const d = await res.json()
     setInviting(false)
+    if (res.status === 202 && d.warning) { setInviteWarning(d.warning); return }
     if (res.ok) { setInviteDone(true); setInviteEmail('') }
-    else { const d = await res.json(); setInviteError(d.error ?? 'Failed to send invite') }
+    else { setInviteError(d.error ?? 'Failed to send invite') }
   }
 
   const shareUrl = token ? `${window.location.origin}/share-v2/${token}` : ''
@@ -163,12 +166,25 @@ export default function ShareFolderCollectionModal({ type, targetId, targetName,
                   </div>
 
                   {inviteError && <p className="text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>{inviteError}</p>}
-                  {inviteDone && <p className="text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(34,197,94,0.08)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.2)' }}>✅ Invite sent to {inviteEmail || 'them'}!</p>}
+                  {inviteWarning && (
+                    <div className="px-3 py-2.5 rounded-lg space-y-2" style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.25)' }}>
+                      <p className="text-xs" style={{ color: '#fbbf24' }}>⚠️ {inviteWarning}</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setInviteWarning('')} className="flex-1 py-1.5 rounded text-xs font-medium"
+                          style={{ background: 'var(--bg-input)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Cancel</button>
+                        <button onClick={() => sendInvite(true)} disabled={inviting} className="flex-1 py-1.5 rounded text-xs font-bold"
+                          style={{ background: '#d97706', color: '#fff', opacity: inviting ? 0.6 : 1 }}>
+                          {inviting ? 'Sending…' : 'Send Anyway'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {inviteDone && <p className="text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(34,197,94,0.08)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.2)' }}>✅ Invite sent!</p>}
 
-                  <button onClick={sendInvite} disabled={inviting || !inviteEmail.trim()} className="w-full py-2.5 rounded-lg text-sm font-bold"
+                  {!inviteWarning && <button onClick={() => sendInvite(false)} disabled={inviting || !inviteEmail.trim()} className="w-full py-2.5 rounded-lg text-sm font-bold"
                     style={{ background: 'var(--accent)', color: 'var(--accent-text)', opacity: inviting || !inviteEmail.trim() ? 0.6 : 1 }}>
                     {inviting ? 'Sending…' : '📩 Send Invite'}
-                  </button>
+                  </button>}
                 </>
               )}
             </>
