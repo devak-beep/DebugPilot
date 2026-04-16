@@ -1,5 +1,4 @@
 import nodemailer from "nodemailer"
-import { LOGO_EMAIL_PNG } from "./logo-base64"
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -23,7 +22,7 @@ export async function sendOtpEmail(to: string, otp: string, purpose: "register" 
   parts.push('<tr><td align="center"><table width="480" cellpadding="0" cellspacing="0" style="background:#0f1f14;border-radius:16px;border:1px solid #166534;overflow:hidden">')
   parts.push('<tr><td style="background:linear-gradient(135deg,#14532d,#166534);padding:28px 40px;text-align:center">')
   parts.push('<table cellpadding="0" cellspacing="0" style="margin:0 auto"><tr>')
-  parts.push('<td style="vertical-align:middle;padding-right:12px"><img src="' + LOGO_EMAIL_PNG + '" width="48" height="48" alt="DebugPilot" style="display:block;border-radius:12px" /></td>')
+  parts.push('<td style="vertical-align:middle;padding-right:12px"><img src="https://debug-pilot.vercel.app/logo-icon.png" width="48" height="48" alt="DebugPilot" style="display:block;border-radius:12px" /></td>')
   parts.push('<td style="vertical-align:middle;text-align:left">')
   parts.push('<div style="font-size:26px;font-weight:900;line-height:1.1"><span style="color:#dcfce7">Debug</span><span style="color:#22c55e">Pilot</span></div>')
   parts.push('<div style="font-size:10px;font-weight:600;color:#86efac;letter-spacing:2px;text-transform:uppercase;margin-top:3px">API Debugger</div>')
