@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer"
+import { LOGO_BASE64 } from "./logo-base64"
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -20,7 +21,8 @@ export async function sendOtpEmail(to: string, otp: string, purpose: "register" 
   parts.push('<body style="margin:0;padding:0;background:#052e16;font-family:\'Segoe UI\',Arial,sans-serif">')
   parts.push('<table width="100%" cellpadding="0" cellspacing="0" style="background:#052e16;padding:40px 0">')
   parts.push('<tr><td align="center"><table width="480" cellpadding="0" cellspacing="0" style="background:#0f1f14;border-radius:16px;border:1px solid #166534;overflow:hidden">')
-  parts.push('<tr><td style="background:linear-gradient(135deg,#14532d,#166534);padding:32px;text-align:center">')
+  parts.push('<tr><td style="background:linear-gradient(135deg,#14532d,#166534);padding:28px;text-align:center">')
+  parts.push('<img src="' + LOGO_BASE64 + '" width="52" height="52" alt="DebugPilot" style="display:inline-block;border-radius:12px;margin-bottom:10px" /><br/>')
   parts.push('<div style="font-size:28px;font-weight:900;color:#dcfce7">Debug<span style="color:#22c55e">Pilot</span></div>')
   parts.push('<div style="font-size:10px;font-weight:600;color:#86efac;letter-spacing:2px;text-transform:uppercase;margin-top:3px">API Debugger</div>')
   parts.push('</td></tr>')

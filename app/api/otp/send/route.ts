@@ -15,7 +15,11 @@ export async function POST(req: NextRequest) {
     const r = await db.execute({ sql: 'SELECT id FROM User WHERE email = ?', args: [email] })
     if (!r.rows.length) return NextResponse.json({ error: "No account with that email" }, { status: 404 })
   }
-  // email_change: no pre-check needed
+  // email_change: check new email isn't already taken
+  if (purpose === "email_change") {
+    const taken = await db.execute({ sql: 'SELECT id FROM User WHERE email = ?', args: [email] })
+    if (taken.rows.length) return NextResponse.json({ error: "This email is already registered to another account" }, { status: 409 })
+  }
 
   // Rate-limit: block resend if an OTP was issued within the last 60 seconds
   const recent = await db.execute({ sql: 'SELECT createdAt FROM OtpToken WHERE email = ? AND purpose = ? ORDER BY createdAt DESC LIMIT 1', args: [email, purpose] })

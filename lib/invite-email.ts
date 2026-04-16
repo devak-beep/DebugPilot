@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer"
+import { LOGO_BASE64 } from "./logo-base64"
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -11,7 +12,7 @@ export async function sendInviteEmail(to: string, inviterName: string, targetNam
   parts.push('<table width="100%" cellpadding="0" cellspacing="0" style="background:#052e16;padding:40px 0">')
   parts.push('<tr><td align="center"><table width="480" cellpadding="0" cellspacing="0" style="background:#0f1f14;border-radius:16px;border:1px solid #166534;overflow:hidden">')
   parts.push('<tr><td style="background:linear-gradient(135deg,#14532d,#166534);padding:28px;text-align:center">')
-  parts.push('<img src="https://debug-pilot.vercel.app/logo-icon.png" width="48" height="48" alt="DebugPilot" style="display:inline-block;border-radius:10px;margin-bottom:8px" /><br/>')
+  parts.push('<img src="' + LOGO_BASE64 + '" width="48" height="48" alt="DebugPilot" style="display:inline-block;border-radius:10px;margin-bottom:8px" /><br/>')
   parts.push('<div style="font-size:26px;font-weight:900;color:#dcfce7">DebugPilot</div></td></tr>')
   parts.push('<tr><td style="padding:32px 40px">')
   parts.push('<h2 style="margin:0 0 12px;color:#dcfce7;font-size:18px">You\'ve been invited!</h2>')
