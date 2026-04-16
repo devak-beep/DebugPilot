@@ -87,7 +87,10 @@ export default function RegisterPage() {
     setLoading(false);
     if (!regRes.ok) { setError(regData.error); return; }
     setSuccess(true);
-    setTimeout(() => router.push(nextUrl), 2500);
+    setTimeout(() => {
+      if (nextUrl.startsWith('/api/')) window.location.href = nextUrl
+      else router.push(nextUrl)
+    }, 2500);
   };
 
   return (

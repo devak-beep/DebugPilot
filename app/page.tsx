@@ -69,6 +69,7 @@ export default function Home() {
   }, []);
 
   const importToken = searchParams.get("import");
+  const inviteStatus = searchParams.get("invite");
 
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -267,6 +268,18 @@ export default function Home() {
             <SettingsDropdown collections={collections} onSignOut={() => setShowSignOutConfirm(true)} />
           </div>
         </div>
+
+        {/* Invite status banner */}
+        {inviteStatus === 'accepted' && (
+          <div className="px-6 py-2 text-xs font-medium text-center" style={{ background: 'rgba(34,197,94,0.1)', color: '#4ade80', borderBottom: '1px solid rgba(34,197,94,0.2)' }}>
+            ✅ Invitation accepted! You now have access to the shared collection.
+          </div>
+        )}
+        {inviteStatus === 'invalid' && (
+          <div className="px-6 py-2 text-xs font-medium text-center" style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', borderBottom: '1px solid rgba(239,68,68,0.2)' }}>
+            ❌ This invite link is invalid or has already been used.
+          </div>
+        )}
 
         {/* Tab bar */}
         {hydrated && <div className="flex items-end shrink-0 px-2 pt-2 gap-1"

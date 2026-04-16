@@ -24,6 +24,7 @@ export default function LoginPage() {
     const res = await signIn("credentials", { email, password, redirect: false });
     setLoading(false);
     if (res?.error) setError("Invalid email or password");
+    else if (nextUrl.startsWith('/api/')) window.location.href = nextUrl
     else router.push(nextUrl);
   };
 
