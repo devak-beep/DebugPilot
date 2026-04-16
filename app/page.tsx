@@ -12,7 +12,7 @@ import CollectionsSidebar from "./components/CollectionsSidebar";
 import SaveRequestModal from "./components/SaveRequestModal";
 import SaveExampleModal from "./components/SaveExampleModal";
 import AppSkeleton from "./components/AppSkeleton";
-import SettingsPanel from "./components/SettingsPanel";
+import SettingsDropdown from "./components/SettingsDropdown";
 import { executeRequest, fetchHistory, fetchHistoryEntry, fetchCollections, updateRequestData } from "@/lib/api";
 import type { ApiResponse, HistoryEntry, RequestData, Collection, SavedRequest } from "@/lib/api";
 
@@ -45,7 +45,6 @@ function newTab(prefill?: RequestData): RequestTab {
 
 export default function Home() {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const [tabs, setTabs] = useState<RequestTab[]>([newTab()]);
@@ -265,16 +264,7 @@ export default function Home() {
               </span>
             )}
             <ThemeToggle />
-            <button onClick={() => setShowSettings(true)} title="Settings"
-              className="text-sm px-2.5 py-1.5 rounded-lg font-medium transition-colors"
-              style={{ background: "var(--bg-input)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
-              ⚙️
-            </button>
-            <button onClick={() => setShowSignOutConfirm(true)}
-              className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
-              style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>
-              Sign Out
-            </button>
+            <SettingsDropdown collections={collections} onSignOut={() => setShowSignOutConfirm(true)} />
           </div>
         </div>
 
@@ -392,7 +382,6 @@ export default function Home() {
           </div>
         </div>
       )}
-      {showSettings && <SettingsPanel collections={collections} onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
