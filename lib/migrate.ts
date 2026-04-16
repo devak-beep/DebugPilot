@@ -1,6 +1,5 @@
 import db from './db'
 
-// Runs once per cold start — idempotent (IF NOT EXISTS)
 export async function ensureTables() {
   await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS ShareLink (
@@ -19,6 +18,17 @@ export async function ensureTables() {
       requesterName TEXT NOT NULL,
       requesterEmail TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',
+      createdAt TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS CollectionMember (
+      id TEXT PRIMARY KEY,
+      collectionId TEXT NOT NULL,
+      ownerId TEXT NOT NULL,
+      memberId TEXT,
+      memberEmail TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'viewer',
+      status TEXT NOT NULL DEFAULT 'pending',
+      inviteToken TEXT UNIQUE,
       createdAt TEXT NOT NULL
     );
   `)

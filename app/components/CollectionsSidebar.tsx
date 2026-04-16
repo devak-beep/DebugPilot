@@ -520,7 +520,7 @@ export default function CollectionsSidebar({
           onClose={() => setShareFolderCol(null)} />
       )}
       {showAccessRequests && <AccessRequestsPanel onClose={() => setShowAccessRequests(false)} />}
-      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsPanel collections={collections} onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

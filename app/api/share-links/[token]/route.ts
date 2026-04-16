@@ -18,8 +18,15 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ token:
   if (link.visibility === 'request_required') {
     if (!session?.user?.id) return NextResponse.json({ error: 'login_required' }, { status: 401 })
     if (session.user.id !== link.ownerId) {
-      // Approved access on ANY link for the same (owner, type, target) is sufficient
-      const access = await db.execute({
+      // 1. Check CollectionMember (email-invite path)
+      const memberAccess = await db.execute({
+        sql: `SELECT role FROM CollectionMember
+              WHERE collectionId = ? AND memberId = ? AND status = 'accepted'
+              LIMIT 1`,
+        args: [link.targetId as string, session.user.id]
+      })
+      // 2. Fallback: approved ShareAccessRequest for this (owner, type, target)
+      const requestAccess = memberAccess.rows.length ? null : await db.execute({
         sql: `SELECT sar.id FROM ShareAccessRequest sar
               JOIN ShareLink sl ON sl.id = sar.linkId
               WHERE sl.ownerId = ? AND sl.type = ? AND sl.targetId = ?
@@ -27,7 +34,8 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ token:
               LIMIT 1`,
         args: [link.ownerId, link.type, link.targetId, session.user.id]
       })
-      if (!access.rows.length) {
+
+      if (!memberAccess.rows.length && !requestAccess?.rows.length) {
         const pending = await db.execute({
           sql: `SELECT sar.id FROM ShareAccessRequest sar
                 JOIN ShareLink sl ON sl.id = sar.linkId
@@ -41,7 +49,10 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ token:
     }
   }
 
-  return NextResponse.json(await resolveLink(link))
+  const role = session?.user?.id === link.ownerId ? 'owner'
+    : (await db.execute({ sql: `SELECT role FROM CollectionMember WHERE collectionId = ? AND memberId = ? AND status = 'accepted' LIMIT 1`, args: [link.targetId as string, session?.user?.id ?? ''] })).rows[0]?.role ?? 'viewer'
+
+  return NextResponse.json({ ...(await resolveLink(link)), role })
 }
 
 // DELETE /api/share-links/[token] — revoke a share link
