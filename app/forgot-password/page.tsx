@@ -16,6 +16,7 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -73,6 +74,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault(); setError(""); 
     const pwErr = validatePassword(password);
     if (pwErr) { setError(pwErr); return; }
+    if (password !== confirmPassword) { setError("Passwords do not match"); return; }
     setLoading(true);
     const { res, data } = await post("/api/reset-password", { email, password, resetToken: resetTokenRef.current });
     setLoading(false);
@@ -142,9 +144,16 @@ export default function ForgotPasswordPage() {
                 <label className="text-xs font-semibold block mb-1" style={{ color: "var(--text-secondary)" }}>New Password</label>
                 <PasswordInput value={password} onChange={setPassword} placeholder="New password" showStrength required className={inputCls} style={inputStyle} />
               </div>
+              <div>
+                <label className="text-xs font-semibold block mb-1" style={{ color: "var(--text-secondary)" }}>Confirm Password</label>
+                <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder="Repeat new password" required className={inputCls} style={inputStyle} />
+                {confirmPassword && password !== confirmPassword && (
+                  <p className="text-xs mt-1" style={{ color: "#f87171" }}>Passwords do not match</p>
+                )}
+              </div>
               {error && <ErrorBox msg={error} />}
-              <button type="submit" disabled={loading} className="w-full py-2.5 rounded-lg text-sm font-bold transition-colors"
-                style={{ background: "var(--accent)", color: "var(--accent-text)", opacity: loading ? 0.7 : 1 }}>
+              <button type="submit" disabled={loading || password !== confirmPassword} className="w-full py-2.5 rounded-lg text-sm font-bold transition-colors"
+                style={{ background: "var(--accent)", color: "var(--accent-text)", opacity: loading || password !== confirmPassword ? 0.7 : 1 }}>
                 {loading ? "Resetting..." : "Reset Password"}
               </button>
             </form>
