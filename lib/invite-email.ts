@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer"
-import { LOGO_BASE64 } from "./logo-base64"
+import { LOGO_EMAIL_PNG } from "./logo-base64"
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -11,9 +11,13 @@ export async function sendInviteEmail(to: string, inviterName: string, targetNam
   parts.push('<!DOCTYPE html><html><body style="margin:0;padding:0;background:#052e16;font-family:Arial,sans-serif">')
   parts.push('<table width="100%" cellpadding="0" cellspacing="0" style="background:#052e16;padding:40px 0">')
   parts.push('<tr><td align="center"><table width="480" cellpadding="0" cellspacing="0" style="background:#0f1f14;border-radius:16px;border:1px solid #166534;overflow:hidden">')
-  parts.push('<tr><td style="background:linear-gradient(135deg,#14532d,#166534);padding:28px;text-align:center">')
-  parts.push('<img src="' + LOGO_BASE64 + '" width="48" height="48" alt="DebugPilot" style="display:inline-block;border-radius:10px;margin-bottom:8px" /><br/>')
-  parts.push('<div style="font-size:26px;font-weight:900;color:#dcfce7">DebugPilot</div></td></tr>')
+  parts.push('<tr><td style="background:linear-gradient(135deg,#14532d,#166534);padding:28px 40px;text-align:center">')
+  parts.push('<table cellpadding="0" cellspacing="0" style="margin:0 auto"><tr>')
+  parts.push('<td style="vertical-align:middle;padding-right:12px"><img src="' + LOGO_EMAIL_PNG + '" width="48" height="48" alt="DebugPilot" style="display:block;border-radius:12px" /></td>')
+  parts.push('<td style="vertical-align:middle;text-align:left">')
+  parts.push('<div style="font-size:26px;font-weight:900;line-height:1.1"><span style="color:#dcfce7">Debug</span><span style="color:#22c55e">Pilot</span></div>')
+  parts.push('<div style="font-size:10px;font-weight:600;color:#86efac;letter-spacing:2px;text-transform:uppercase;margin-top:3px">API Debugger</div>')
+  parts.push('</td></tr></table></td></tr>')
   parts.push('<tr><td style="padding:32px 40px">')
   parts.push('<h2 style="margin:0 0 12px;color:#dcfce7;font-size:18px">You\'ve been invited!</h2>')
   parts.push('<p style="margin:0 0 20px;color:#86efac;font-size:14px;line-height:1.6"><strong style="color:#dcfce7">' + inviterName + '</strong> invited you to <strong style="color:#dcfce7">' + targetName + '</strong> as a <strong style="color:#22c55e">' + role + '</strong>.</p>')
