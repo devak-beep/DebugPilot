@@ -13,6 +13,9 @@ import type { SavedExample } from "@/lib/api";
 import ConfirmModal from "./ConfirmModal";
 import ShareLinkModal from "./ShareLinkModal";
 import MoveRequestModal from "./MoveRequestModal";
+import ShareFolderCollectionModal from "./ShareFolderCollectionModal";
+import AccessRequestsPanel from "./AccessRequestsPanel";
+import SettingsPanel from "./SettingsPanel";
 
 interface Props {
   collections: Collection[];
@@ -103,17 +106,25 @@ function InlineInput({ defaultValue = "", onConfirm, onCancel, placeholder }: {
   defaultValue?: string; onConfirm: (v: string) => void; onCancel: () => void; placeholder: string;
 }) {
   const [val, setVal] = useState(defaultValue);
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async () => {
+    if (!val.trim() || submitting) return;
+    setSubmitting(true);
+    await onConfirm(val.trim());
+  };
   return (
     <div className="mt-1 w-full">
       <input autoFocus value={val} onChange={(e) => setVal(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter" && val.trim()) onConfirm(val.trim()); if (e.key === "Escape") onCancel(); }}
+        onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") onCancel(); }}
         placeholder={placeholder}
         className="w-full px-2 py-1 text-xs rounded mb-1 block"
         style={{ background: "var(--bg-input)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       <div className="flex gap-1">
-        <button onClick={() => val.trim() && onConfirm(val.trim())}
+        <button onClick={submit} disabled={submitting}
           className="flex-1 py-1 text-xs rounded font-medium"
-          style={{ background: "var(--accent)", color: "var(--accent-text)" }}>✓ Save</button>
+          style={{ background: "var(--accent)", color: "var(--accent-text)", opacity: submitting ? 0.6 : 1 }}>
+          {submitting ? "..." : "✓ Save"}
+        </button>
         <button onClick={onCancel} className="flex-1 py-1 text-xs rounded"
           style={{ background: "var(--bg-input)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>✕ Cancel</button>
       </div>
@@ -168,13 +179,14 @@ function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefre
   );
 }
 
-function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, onRefresh, onConfirmDelete, onShare, onLoadExample, onMoveRequest, onNewRequest }: {
+function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, onRefresh, onConfirmDelete, onShare, onLoadExample, onMoveRequest, onNewRequest, onShareFolder }: {
   folder: Folder; collectionId: string; onLoadRequest: (r: SavedRequest) => void;
   onDelete: () => void; onRename: () => void; onRefresh: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void;
   onShare: (url: string, reqData: { method: string; url: string; headers: Record<string, string>; body: string | null }) => void;
   onLoadExample: (ex: SavedExample) => void;
   onMoveRequest: (r: SavedRequest) => void; onNewRequest: () => void;
+  onShareFolder: () => void;
 }) {
   const [open, setOpen] = useState(true);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -187,6 +199,7 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
         <DotsMenu items={[
           { label: "➕ New Request", onClick: onNewRequest },
           { label: "✏️ Rename", onClick: onRename },
+          { label: "🔗 Share Folder", onClick: onShareFolder },
           { label: "🗑 Delete", danger: true, onClick: onDelete },
         ]} />
       </div>
@@ -214,12 +227,14 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
   );
 }
 
-function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRename, onShare, onLoadExample, onMoveRequest, onNewRequest }: {
+function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRename, onShare, onLoadExample, onMoveRequest, onNewRequest, onShareCollection, onShareFolder }: {
   col: Collection; onLoadRequest: (r: SavedRequest) => void; onRefresh: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void;
   onRename: () => void; onShare: (url: string, reqData: { method: string; url: string; headers: Record<string, string>; body: string | null }) => void;
   onLoadExample: (ex: SavedExample) => void;
   onMoveRequest: (r: SavedRequest) => void; onNewRequest: (collectionId: string, folderId: string | null) => void;
+  onShareCollection: () => void;
+  onShareFolder: (folder: Folder) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [addingFolder, setAddingFolder] = useState(false);
@@ -236,6 +251,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
         <DotsMenu items={[
           { label: "✏️ Rename", onClick: onRename },
           { label: "📁 Add Folder", onClick: () => setAddingFolder(true) },
+          { label: "🔗 Share Collection", onClick: onShareCollection },
           { label: "🗑 Delete", danger: true, onClick: () => onConfirmDelete(`Delete collection "${col.name}"?`, async () => { await deleteCollection(col.id); onRefresh(); }) },
         ]} />
       </div>
@@ -269,6 +285,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
                   onLoadExample={onLoadExample}
                   onMoveRequest={onMoveRequest}
                   onNewRequest={() => onNewRequest(col.id, f.id)}
+                  onShareFolder={() => onShareFolder(f)}
                   onRename={() => setRenamingFolderId(f.id)}
                   onDelete={() => onConfirmDelete(`Delete folder "${f.name}"?`, async () => { await deleteFolder(col.id, f.id); onRefresh(); })} />
           ))}
@@ -296,6 +313,9 @@ export default function CollectionsSidebar({
   const [moveTarget, setMoveTarget] = useState<SavedRequest | null>(null);
   const [openingLink, setOpeningLink] = useState(false);
   const [pastedLink, setPastedLink] = useState("");
+  const [shareFolderCol, setShareFolderCol] = useState<{ type: 'folder' | 'collection'; id: string; name: string } | null>(null);
+  const [showAccessRequests, setShowAccessRequests] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const toggleDiff = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -330,6 +350,14 @@ export default function CollectionsSidebar({
           <div className="flex items-center justify-between px-3 py-2 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>{collections.length} collection{collections.length !== 1 ? "s" : ""}</span>
             <div className="flex gap-1.5">
+              <button onClick={() => setShowSettings(true)}
+                className="text-xs px-2 py-1 rounded font-medium"
+                style={{ background: "var(--bg-input)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
+                title="Settings">⚙️</button>
+              <button onClick={() => setShowAccessRequests(true)}
+                className="text-xs px-2 py-1 rounded font-medium"
+                style={{ background: "var(--bg-input)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
+                title="Access requests">🔔</button>
               <button onClick={() => { setOpeningLink(o => !o); setPastedLink(""); }}
                 className="text-xs px-2 py-1 rounded font-medium"
                 style={{ background: "var(--bg-input)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
@@ -388,6 +416,8 @@ export default function CollectionsSidebar({
                     onLoadExample={onLoadExample}
                     onMoveRequest={setMoveTarget}
                     onNewRequest={onNewRequest}
+                    onShareCollection={() => setShareFolderCol({ type: 'collection', id: col.id, name: col.name })}
+                    onShareFolder={(f) => setShareFolderCol({ type: 'folder', id: f.id, name: f.name })}
                     onConfirmDelete={(label, action, message) => setConfirmDelete({ label, action, message })} />
             ))}
           </div>
@@ -482,6 +512,15 @@ export default function CollectionsSidebar({
             onRefresh();
           }} />
       )}
+      {shareFolderCol && (
+        <ShareFolderCollectionModal
+          type={shareFolderCol.type}
+          targetId={shareFolderCol.id}
+          targetName={shareFolderCol.name}
+          onClose={() => setShareFolderCol(null)} />
+      )}
+      {showAccessRequests && <AccessRequestsPanel onClose={() => setShowAccessRequests(false)} />}
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

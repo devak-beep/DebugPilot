@@ -4,9 +4,16 @@ import db from "@/lib/db"
 import bcrypt from "bcryptjs"
 
 export async function POST(req: NextRequest) {
-  const { email, password } = await req.json()
-  if (!email?.trim() || !password?.trim())
+  const { email, password, resetToken } = await req.json()
+  if (!email?.trim() || !password?.trim() || !resetToken)
     return NextResponse.json({ error: "All fields required" }, { status: 400 })
+
+  // Consume the one-time reset token issued after OTP verification
+  const now = new Date().toISOString()
+  const t = await db.execute({ sql: 'SELECT id FROM OtpToken WHERE email = ? AND otp = ? AND purpose = ? AND expiresAt > ?', args: [email, resetToken, "reset_verified", now] })
+  if (!t.rows.length) return NextResponse.json({ error: "Invalid or expired reset session" }, { status: 400 })
+  await db.execute({ sql: 'DELETE FROM OtpToken WHERE id = ?', args: [t.rows[0].id as string] })
+
   const r = await db.execute({ sql: 'SELECT id FROM User WHERE email = ?', args: [email] })
   if (!r.rows.length) return NextResponse.json({ error: "No account with that email" }, { status: 404 })
   const hashed = await bcrypt.hash(password, 10)

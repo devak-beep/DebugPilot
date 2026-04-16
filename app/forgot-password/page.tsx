@@ -18,6 +18,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const resetTokenRef = useRef<string | null>(null);
 
   const startTimer = () => {
     setSecondsLeft(600);
@@ -62,12 +63,13 @@ export default function ForgotPasswordPage() {
     const { res, data } = await post("/api/otp/verify", { email, otp, purpose: "reset" });
     setLoading(false);
     if (!res.ok) { setError(data.error); return; }
+    resetTokenRef.current = data.resetToken;
     setStep("password");
   };
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setLoading(true);
-    const { res, data } = await post("/api/reset-password", { email, password });
+    const { res, data } = await post("/api/reset-password", { email, password, resetToken: resetTokenRef.current });
     setLoading(false);
     if (!res.ok) { setError(data.error); return; }
     router.push("/login");
