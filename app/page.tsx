@@ -264,12 +264,12 @@ export default function Home() {
                 👤 {session.user.name}
               </span>
             )}
+            <ThemeToggle />
             <button onClick={() => setShowSettings(true)} title="Settings"
               className="text-sm px-2.5 py-1.5 rounded-lg font-medium transition-colors"
               style={{ background: "var(--bg-input)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
               ⚙️
             </button>
-            <ThemeToggle />
             <button onClick={() => setShowSignOutConfirm(true)}
               className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
               style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>

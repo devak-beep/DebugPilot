@@ -29,7 +29,7 @@ export default function ThemeToggle() {
       }}
       title="Toggle theme"
     >
-      {dark ? "☀️ Light" : "🌙 Dark"}
+      {dark ? "☀️" : "🌙"}
     </button>
   );
 }
