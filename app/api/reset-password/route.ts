@@ -5,8 +5,9 @@ import bcrypt from "bcryptjs"
 import { validatePassword } from '@/lib/password'
 
 export async function POST(req: NextRequest) {
-  const { email, password, resetToken } = await req.json()
-  if (!email?.trim() || !password?.trim() || !resetToken)
+  const { email: rawEmail, password, resetToken } = await req.json()
+  const email = rawEmail?.trim().toLowerCase()
+  if (!email || !password?.trim() || !resetToken)
     return NextResponse.json({ error: "All fields required" }, { status: 400 })
   const pwErr = validatePassword(password)
   if (pwErr) return NextResponse.json({ error: pwErr }, { status: 400 })

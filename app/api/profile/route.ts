@@ -21,8 +21,9 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (action === 'email') {
-    const { newEmail, otp } = body
-    if (!newEmail?.trim() || !otp) return NextResponse.json({ error: 'newEmail and otp required' }, { status: 400 })
+    const { newEmail: rawNew, otp } = body
+    const newEmail = rawNew?.trim().toLowerCase()
+    if (!newEmail || !otp) return NextResponse.json({ error: 'newEmail and otp required' }, { status: 400 })
     // Verify OTP sent to new email
     const now = new Date().toISOString()
     const r = await db.execute({ sql: 'SELECT id FROM OtpToken WHERE email = ? AND otp = ? AND purpose = ? AND expiresAt > ?', args: [newEmail.trim(), otp, 'email_change', now] })

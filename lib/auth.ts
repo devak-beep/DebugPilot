@@ -14,7 +14,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
-        const res = await db.execute({ sql: 'SELECT * FROM User WHERE email = ?', args: [credentials.email as string] })
+        const email = (credentials.email as string).trim().toLowerCase()
+        const res = await db.execute({ sql: 'SELECT * FROM User WHERE email = ?', args: [email] })
         const user = res.rows[0]
         if (!user) return null
         const valid = await bcrypt.compare(credentials.password as string, user.password as string)

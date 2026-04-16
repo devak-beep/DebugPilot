@@ -4,7 +4,8 @@ import db, { cuid } from "@/lib/db"
 import { sendOtpEmail } from "@/lib/email"
 
 export async function POST(req: NextRequest) {
-  const { email, purpose } = await req.json()
+  const { email: rawEmail, purpose } = await req.json()
+  const email = rawEmail?.trim().toLowerCase()
   if (!email || !["register", "reset", "email_change"].includes(purpose))
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
 
