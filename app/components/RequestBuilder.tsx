@@ -6,10 +6,13 @@ type Tab = "params" | "headers" | "body" | "auth";
 type BodyType = "none" | "json" | "xml" | "text" | "graphql" | "form-data" | "x-www-form-urlencoded";
 type AuthType = "none" | "bearer" | "basic" | "api-key" | "oauth2" | "digest";
 
-const inputCls = "w-full px-3 py-2 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 transition-colors";
+const METHOD_COLORS: Record<string, string> = {
+  GET: "#22c55e", POST: "#3b82f6", PUT: "#eab308",
+  PATCH: "#a855f7", DELETE: "#ef4444", HEAD: "#6b7280", OPTIONS: "#6b7280",
+};
 const inputStyle = { background: "var(--bg-input)", border: "1px solid var(--border)", color: "var(--text-primary)" };
 
-function SuggestInput({ value, onChange, placeholder, suggestions }: {
+const inputCls = "w-full px-3 py-2 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 transition-colors";({ value, onChange, placeholder, suggestions }: {
   value: string; onChange: (v: string) => void; placeholder?: string; suggestions: string[];
 }) {
   const [open, setOpen] = useState(false);
@@ -328,8 +331,8 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
         <div className="flex gap-3 p-4" style={{ borderBottom: "1px solid var(--border)" }}>
           <select value={method} onChange={(e) => setMethod(e.target.value)}
             className="px-3 py-2 rounded-lg text-sm font-bold focus:outline-none"
-            style={{ background: "var(--bg-input)", border: "1px solid var(--border)", color: "var(--accent)" }}>
-            {["GET","POST","PUT","PATCH","DELETE","HEAD","OPTIONS"].map(m => <option key={m}>{m}</option>)}
+            style={{ background: "var(--bg-input)", border: `1px solid ${METHOD_COLORS[method] ?? "#6b7280"}`, color: METHOD_COLORS[method] ?? "#6b7280" }}>
+            {["GET","POST","PUT","PATCH","DELETE","HEAD","OPTIONS"].map(m => <option key={m} style={{ color: METHOD_COLORS[m] ?? "#6b7280" }}>{m}</option>)}
           </select>
           <div className="flex-1">
             <input type="text" value={url} onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
@@ -361,7 +364,7 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
                 border: saveState === "saved" ? "1px solid var(--accent)" : "1px solid var(--border)",
                 opacity: saveState === "saving" ? 0.6 : 1,
               }}>
-              {saveState === "saving" ? "⏳ Saving..." : saveState === "saved" ? "✅ Saved!" : "💾 Save"}
+              {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved" : "Save"}
             </button>
           )}
           <button type="button" onClick={() => { setShowCurlImport(true); setCurlError(null); }}

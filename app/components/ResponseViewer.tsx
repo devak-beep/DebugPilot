@@ -136,7 +136,7 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
             <button onClick={onSaveResponse}
               className="text-xs px-3 py-1 rounded-lg font-medium transition-colors"
               style={{ background: "color-mix(in srgb, var(--accent) 15%, transparent)", color: "var(--accent)", border: "1px solid var(--border)" }}>
-              💾 Save Response
+              Save Response
             </button>
           )}
         </div>
@@ -180,7 +180,7 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
               color: copied ? "var(--accent)" : "var(--text-muted)",
               border: copied ? "1px solid var(--accent)" : "1px solid var(--border)",
             }}>
-            {copied ? "✅ Copied!" : "📋 Copy"}
+            {copied ? "Copied" : "Copy"}
           </button>
         </div>
       </div>

@@ -40,11 +40,11 @@ export default function SaveExampleModal({ response, savedRequestId, onSaved, on
       <div className="w-full max-w-sm rounded-2xl shadow-2xl p-6 space-y-4"
         style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
         onClick={e => e.stopPropagation()}>
-        <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>💾 Save Response</h2>
+        <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>Save Response</h2>
 
         {!savedRequestId ? (
           <div className="text-sm p-3 rounded-lg" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>
-            This request hasn't been saved yet. Save it to a collection first using the 💾 Save button, then you can save responses to it.
+            This request hasn't been saved yet. Save it to a collection first using the Save button, then you can save responses to it.
           </div>
         ) : (
           <div className="space-y-1">
@@ -69,7 +69,7 @@ export default function SaveExampleModal({ response, savedRequestId, onSaved, on
                 border: saved ? "1px solid var(--accent)" : "1px solid transparent",
                 opacity: saving ? 0.6 : 1,
               }}>
-              {saving ? "⏳ Saving..." : saved ? "✅ Saved!" : "Save"}
+              {saving ? "Saving..." : saved ? "Saved" : "Save"}
             </button>
           )}
         </div>
