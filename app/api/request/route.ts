@@ -37,14 +37,19 @@ export async function POST(req: NextRequest) {
     let fetchHeaders: Record<string, string> = { ...headers }
 
     if (formData && formData.length > 0 && method !== 'GET' && method !== 'HEAD') {
-      const fd = new FormData()
-      formData.filter(r => r.key.trim()).forEach(({ key, value }) => fd.append(key, value))
-      fetchBody = fd
-      // Must remove Content-Type so fetch auto-sets multipart/form-data with boundary
-      delete fetchHeaders['Content-Type']
+      const boundary = `----FormBoundary${Math.random().toString(36).slice(2)}`
+      const parts: string[] = []
+      for (const { key, value } of formData.filter(r => r.key.trim())) {
+        parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="${key}"\r\n\r\n${value}`)
+      }
+      const bodyStr = parts.join('\r\n') + `\r\n--${boundary}--`
+      fetchBody = bodyStr
+      fetchHeaders = {
+        ...fetchHeaders,
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': String(Buffer.byteLength(bodyStr)),
+      }
       delete fetchHeaders['content-type']
-      // Also remove Content-Length — fetch will compute it
-      delete fetchHeaders['Content-Length']
       delete fetchHeaders['content-length']
     } else if (method !== 'GET' && method !== 'HEAD' && requestBody) {
       fetchBody = requestBody
