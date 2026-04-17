@@ -20,13 +20,13 @@
   --badge-json-bg: #dcfce7;
   --badge-json-text: #15803d;
   /* code block */
-  --code-bg: #f6f8fa;
-  --code-text: #24292e;
-  --code-key: #005cc5;
-  --code-string: #0550ae;
-  --code-number: #e36209;
-  --code-boolean: #d73a49;
-  --code-null: #6a737d;
+  --code-bg: #1e1e1e;
+  --code-text: #d4d4d4;
+  --code-key: #9cdcfe;
+  --code-string: #ce9178;
+  --code-number: #b5cea8;
+  --code-boolean: #569cd6;
+  --code-null: #808080;
 }
 
 .dark {
