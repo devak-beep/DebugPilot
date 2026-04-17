@@ -87,13 +87,13 @@ function CodeEditor({ value, onChange, lang, placeholder, rows = 8 }: {
   );
 }
 
-function SuggestInput({ value, onChange, placeholder, suggestions }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; suggestions: string[];
+function SuggestInput({ value, onChange, placeholder, suggestions, flex }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; suggestions: string[]; flex?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const filtered = suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()) && s !== value);
   return (
-    <div className="relative" style={{ width: "40%" }}>
+    <div className="relative" style={flex ? { flex: 1 } : { width: "40%" }}>
       <input value={value} onChange={(e) => { onChange(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder={placeholder} className={inputCls} style={{ ...inputStyle, width: "100%" }} />
@@ -117,16 +117,29 @@ const HEADER_SUGGESTIONS = [
   "Referer", "User-Agent", "X-API-Key", "X-Request-ID",
 ];
 
+const HEADER_VALUE_SUGGESTIONS: Record<string, string[]> = {
+  "Accept": ["*/*", "application/json", "application/xml", "text/html", "text/plain", "application/octet-stream"],
+  "Accept-Encoding": ["gzip, deflate, br", "gzip", "deflate", "identity"],
+  "Accept-Language": ["en-US,en;q=0.9", "en-GB", "fr-FR", "de-DE", "es-ES"],
+  "Authorization": ["Bearer ", "Basic ", "Digest ", "ApiKey "],
+  "Cache-Control": ["no-cache", "no-store", "max-age=0", "must-revalidate", "public", "private"],
+  "Content-Type": ["application/json", "application/xml", "text/plain", "text/html", "application/x-www-form-urlencoded", "multipart/form-data", "application/octet-stream"],
+  "User-Agent": ["Mozilla/5.0", "PostmanRuntime/7.36.0", "curl/8.4.0"],
+  "X-API-Key": [],
+  "X-Request-ID": [],
+};
+
 const FORM_FIELD_SUGGESTIONS = ["username", "password", "email", "name", "file", "token", "id", "type", "status", "message"];
 
 type KVRow = { key: string; value: string; description?: string; enabled: boolean };
 
-function KVEditor({ rows, onChange, keyPlaceholder = "Key", valuePlaceholder = "Value", keySuggestions, showDescription = false }: {
+function KVEditor({ rows, onChange, keyPlaceholder = "Key", valuePlaceholder = "Value", keySuggestions, valueSuggestions, showDescription = false }: {
   rows: KVRow[];
   onChange: (rows: KVRow[]) => void;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
   keySuggestions?: string[];
+  valueSuggestions?: (key: string) => string[];
   showDescription?: boolean;
 }) {
   const update = (i: number, field: keyof KVRow, val: string | boolean) => {
@@ -143,27 +156,34 @@ function KVEditor({ rows, onChange, keyPlaceholder = "Key", valuePlaceholder = "
           <div style={{ width: "28px" }} />
         </div>
       )}
-      {rows.map((row, i) => (
-        <div key={i} className="flex gap-2 items-center">
-          <input type="checkbox" checked={row.enabled} onChange={(e) => update(i, "enabled", e.target.checked)}
-            className="accent-green-600 shrink-0" style={{ width: "16px" }} />
-          {keySuggestions ? (
-            <SuggestInput value={row.key} onChange={(v) => update(i, "key", v)} placeholder={keyPlaceholder} suggestions={keySuggestions} />
-          ) : (
-            <input value={row.key} onChange={(e) => update(i, "key", e.target.value)} placeholder={keyPlaceholder}
-              className={inputCls} style={{ ...inputStyle, width: "40%", opacity: row.enabled ? 1 : 0.45 }} />
-          )}
-          <input value={row.value} onChange={(e) => update(i, "value", e.target.value)} placeholder={valuePlaceholder}
-            className={`${inputCls} flex-1`} style={{ ...inputStyle, opacity: row.enabled ? 1 : 0.45 }} />
-          {showDescription && (
-            <input value={row.description ?? ""} onChange={(e) => update(i, "description", e.target.value)}
-              placeholder="Description" className={inputCls}
-              style={{ ...inputStyle, width: "25%", opacity: row.enabled ? 1 : 0.45 }} />
-          )}
-          <button type="button" onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
-            className="px-2 text-sm shrink-0" style={{ color: "var(--text-muted)" }}>✕</button>
-        </div>
-      ))}
+      {rows.map((row, i) => {
+        const valSuggestions = valueSuggestions?.(row.key) ?? [];
+        return (
+          <div key={i} className="flex gap-2 items-center">
+            <input type="checkbox" checked={row.enabled} onChange={(e) => update(i, "enabled", e.target.checked)}
+              className="accent-green-600 shrink-0" style={{ width: "16px" }} />
+            {keySuggestions ? (
+              <SuggestInput value={row.key} onChange={(v) => update(i, "key", v)} placeholder={keyPlaceholder} suggestions={keySuggestions} />
+            ) : (
+              <input value={row.key} onChange={(e) => update(i, "key", e.target.value)} placeholder={keyPlaceholder}
+                className={inputCls} style={{ ...inputStyle, width: "40%", opacity: row.enabled ? 1 : 0.45 }} />
+            )}
+            {valSuggestions.length > 0 ? (
+              <SuggestInput value={row.value} onChange={(v) => update(i, "value", v)} placeholder={valuePlaceholder} suggestions={valSuggestions} flex />
+            ) : (
+              <input value={row.value} onChange={(e) => update(i, "value", e.target.value)} placeholder={valuePlaceholder}
+                className={`${inputCls} flex-1`} style={{ ...inputStyle, opacity: row.enabled ? 1 : 0.45 }} />
+            )}
+            {showDescription && (
+              <input value={row.description ?? ""} onChange={(e) => update(i, "description", e.target.value)}
+                placeholder="Description" className={inputCls}
+                style={{ ...inputStyle, width: "25%", opacity: row.enabled ? 1 : 0.45 }} />
+            )}
+            <button type="button" onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
+              className="px-2 text-sm shrink-0" style={{ color: "var(--text-muted)" }}>✕</button>
+          </div>
+        );
+      })}
       {rows.length === 0 && <p className="text-xs italic" style={{ color: "var(--text-muted)" }}>None added.</p>}
       <button type="button" onClick={() => onChange([...rows, { key: "", value: "", description: "", enabled: true }])}
         className="text-xs font-medium" style={{ color: "var(--accent)" }}>+ Add</button>
@@ -469,7 +489,9 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
 
           {tab === "headers" && (
             <KVEditor rows={headers} onChange={setHeaders} keyPlaceholder="Header name" valuePlaceholder="Value"
-              keySuggestions={HEADER_SUGGESTIONS} showDescription />
+              keySuggestions={HEADER_SUGGESTIONS}
+              valueSuggestions={(key) => HEADER_VALUE_SUGGESTIONS[key] ?? []}
+              showDescription />
           )}
 
           {tab === "body" && (
