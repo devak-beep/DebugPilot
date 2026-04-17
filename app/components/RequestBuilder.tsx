@@ -401,12 +401,15 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
     try { new URL(url); } catch { setUrlError("Please enter a valid URL"); return; }
     if (bodyType === "json" && jsonError) return;
 
+    const fd = buildFormData();
+    console.log('[Send] bodyType:', bodyType, '| formDataRows:', JSON.stringify(formDataRows), '| buildFormData:', JSON.stringify(fd));
+
     const builtHeaders = buildHeaders();
     const ct = getContentTypeHeader();
     if (ct && !builtHeaders.some(h => h.key.toLowerCase() === "content-type"))
       builtHeaders.push({ key: "Content-Type", value: ct });
 
-    onSubmit({ url: buildFinalUrl(), method, headers: builtHeaders, body: buildBody(), formData: buildFormData() });
+    onSubmit({ url: buildFinalUrl(), method, headers: builtHeaders, body: buildBody(), formData: fd });
   };
 
   const tabs: { id: Tab; label: string }[] = [
