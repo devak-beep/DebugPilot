@@ -165,6 +165,21 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
     if (format === "json") {
       try { return JSON.stringify(JSON.parse(rawStr), null, 2); } catch { return rawStr; }
     }
+    if (format === "html" || format === "xml") {
+      try {
+        // indent XML/HTML by tracking tag depth
+        const str = rawStr.replace(/>\s*</g, "><").trim();
+        let indent = 0;
+        return str.replace(/(<\/?[^>]+>)/g, (tag) => {
+          const isClose = tag.startsWith("</");
+          const isSelfClose = tag.endsWith("/>") || /^<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)[\s>]/i.test(tag);
+          if (isClose) indent = Math.max(0, indent - 1);
+          const line = "  ".repeat(indent) + tag;
+          if (!isClose && !isSelfClose) indent++;
+          return line;
+        }).replace(/></g, ">\n<");
+      } catch { return rawStr; }
+    }
     return rawStr;
   })();
 
