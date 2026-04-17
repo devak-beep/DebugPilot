@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
   catch { return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 }) }
 
   const { method, url, headers = {}, body: requestBody, formData } = body
-  if (!url) return NextResponse.json({ error: 'URL is required' }, { status: 400 })
   try { new URL(url) } catch { return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 }) }
 
   const controller = new AbortController()
