@@ -48,11 +48,11 @@
   --badge-json-text: #86efac;
   /* code block */
   --code-bg: #0d1117;
-  --code-text: #c9d1d9;
+  --code-text: #e6edf3;
   --code-key: #79c0ff;
-  --code-string: #a5d6ff;
-  --code-number: #ffa657;
-  --code-boolean: #ff7b72;
+  --code-string: #ffa657;
+  --code-number: #7ee787;
+  --code-boolean: #d2a8ff;
   --code-null: #8b949e;
 }
 
