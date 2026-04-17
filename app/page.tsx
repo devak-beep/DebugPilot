@@ -116,7 +116,23 @@ export default function Home() {
   }, []);
 
   const loadCollections = useCallback(async () => {
-    try { setCollections(await fetchCollections()); } catch {}
+    try {
+      const cols = await fetchCollections();
+      setCollections(cols);
+      // sync open tab labels with latest saved request names
+      const nameMap = new Map<string, string>();
+      for (const col of cols) {
+        for (const req of col.requests ?? []) nameMap.set(req.id, req.name);
+        for (const folder of col.folders ?? [])
+          for (const req of folder.requests ?? []) nameMap.set(req.id, req.name);
+      }
+      setTabs(prev => prev.map(t => {
+        if (!t.savedRequestId) return t;
+        const fresh = nameMap.get(t.savedRequestId);
+        if (fresh && fresh !== t.savedName) return { ...t, label: fresh, savedName: fresh };
+        return t;
+      }));
+    } catch {}
   }, []);
 
   useEffect(() => { loadHistory(); loadCollections(); }, [loadHistory, loadCollections]);
