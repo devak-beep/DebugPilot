@@ -31,66 +31,78 @@ function formatSize(str: string) {
 }
 
 function SyntaxHighlight({ code, lang }: { code: string; lang: string }) {
-  let h = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // Only escape < and > — quotes stay literal
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   if (lang === "json") {
+    let h = esc(code);
     h = h.replace(
       /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?|[{}\[\],:])/g,
       (m) => {
-        if (/^[{}\[\]]$/.test(m)) return `<span style="color:var(--code-punctuation)">${m}</span>`;
-        if (/^[,:]$/.test(m)) return `<span style="color:var(--code-punctuation)">${m}</span>`;
-        if (/^"/.test(m)) {
-          if (/:$/.test(m)) return `<span style="color:var(--code-key)">${m}</span>`;
-          return `<span style="color:var(--code-string)">${m}</span>`;
-        }
+        if (/^[{}\[\],:]$/.test(m)) return `<span style="color:var(--code-punctuation)">${m}</span>`;
+        if (/^"/.test(m)) return /:$/.test(m) ? `<span style="color:var(--code-key)">${m}</span>` : `<span style="color:var(--code-string)">${m}</span>`;
         if (/true|false/.test(m)) return `<span style="color:var(--code-boolean)">${m}</span>`;
         if (/null/.test(m)) return `<span style="color:var(--code-null)">${m}</span>`;
         return `<span style="color:var(--code-number)">${m}</span>`;
       }
     );
-  } else if (lang === "html" || lang === "xml") {
-    // comments
-    h = h.replace(/(&lt;!--[\s\S]*?--&gt;)/g, (m) =>
-      `<span style="color:var(--code-comment)">${m}</span>`);
-    // doctype
-    h = h.replace(/(&lt;!DOCTYPE[^>]*&gt;)/gi, (m) =>
-      `<span style="color:var(--code-comment)">${m}</span>`);
-    // closing tags
-    h = h.replace(/(&lt;\/)([\w:-]+)(\s*&gt;)/g, (_, a, tag, c) =>
-      `<span style="color:var(--code-punctuation)">${a}</span><span style="color:var(--code-tag)">${tag}</span><span style="color:var(--code-punctuation)">${c}</span>`);
-    // opening/self-closing tags with attributes
-    h = h.replace(/(&lt;)([\w:-]+)([\s\S]*?)(\/?&gt;)/g, (_, open, tag, attrs, close) => {
-      const coloredAttrs = attrs.replace(/([\w:-]+)(=)("([^"]*)")/g,
-        (_: string, attr: string, eq: string, val: string) =>
-          `<span style="color:var(--code-attr)">${attr}</span>${eq}<span style="color:var(--code-string)">${val}</span>`
-      ).replace(/([\w:-]+)(?==)/g, (a: string) =>
-        a.startsWith("<span") ? a : `<span style="color:var(--code-attr)">${a}</span>`
-      );
-      return `<span style="color:var(--code-punctuation)">${open}</span><span style="color:var(--code-tag)">${tag}</span>${coloredAttrs}<span style="color:var(--code-punctuation)">${close}</span>`;
-    });
-  } else if (lang === "js") {
-    // comments first (before anything else)
-    h = h.replace(/(\/\/[^\n]*)|(\/\*[\s\S]*?\*\/)/g, (m) =>
-      `<span style="color:var(--code-comment)">${m}</span>`);
-    // strings — literal quotes (not &quot; since only < > are escaped)
-    h = h.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g, (m) =>
-      `<span style="color:var(--code-string)">${m}</span>`);
-    // keywords
-    h = h.replace(
-      /\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|class|extends|new|this|super|import|export|default|from|typeof|instanceof|void|delete|throw|try|catch|finally|async|await|of|in|yield)\b/g,
-      (m) => `<span style="color:var(--code-boolean)">${m}</span>`);
-    // booleans/null/undefined
-    h = h.replace(/\b(true|false|null|undefined|NaN|Infinity)\b/g, (m) =>
-      `<span style="color:var(--code-null)">${m}</span>`);
-    // numbers
-    h = h.replace(/\b(0x[\da-fA-F]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b/g, (m) =>
-      `<span style="color:var(--code-number)">${m}</span>`);
-    // function/method calls
-    h = h.replace(/\b([\w$]+)(?=\s*\()/g, (m) =>
-      `<span style="color:var(--code-key)">${m}</span>`);
+    return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: h }} />;
   }
 
-  return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: h }} />;
+  if (lang === "html" || lang === "xml") {
+    // Process token by token using a regex that matches one tag or text at a time
+    const tokenRe = /<!--[\s\S]*?-->|<!\w[^>]*>|<\/[\w:-]+\s*>|<[\w:-]+(?:\s+[\w:-]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*))?)*\s*\/?>|[^<]+/g;
+    let result = "";
+    let match: RegExpExecArray | null;
+    while ((match = tokenRe.exec(code)) !== null) {
+      const token = match[0];
+      if (token.startsWith("<!--")) {
+        result += `<span style="color:var(--code-comment)">${esc(token)}</span>`;
+      } else if (token.startsWith("<!")) {
+        result += `<span style="color:var(--code-comment)">${esc(token)}</span>`;
+      } else if (token.startsWith("</")) {
+        const tag = token.match(/<\/([\w:-]+)/)?.[1] ?? "";
+        result += `<span style="color:var(--code-punctuation)">&lt;/</span><span style="color:var(--code-tag)">${tag}</span><span style="color:var(--code-punctuation)">&gt;</span>`;
+      } else if (token.startsWith("<")) {
+        const tagMatch = token.match(/^<([\w:-]+)([\s\S]*?)(\/?>)$/);
+        if (tagMatch) {
+          const [, tagName, attrs, close] = tagMatch;
+          const coloredAttrs = attrs.replace(/([\w:-]+)(\s*=\s*)("([^"]*)"|'([^']*)'|([^\s>]*))/g,
+            (_: string, attr: string, eq: string, val: string) =>
+              `<span style="color:var(--code-attr)">${attr}</span>${eq}<span style="color:var(--code-string)">${esc(val)}</span>`
+          );
+          result += `<span style="color:var(--code-punctuation)">&lt;</span><span style="color:var(--code-tag)">${tagName}</span>${coloredAttrs}<span style="color:var(--code-punctuation)">${esc(close)}</span>`;
+        } else {
+          result += esc(token);
+        }
+      } else {
+        result += esc(token);
+      }
+    }
+    return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: result }} />;
+  }
+
+  if (lang === "js") {
+    // Tokenize JS to avoid re-coloring inside strings/comments
+    const tokenRe = /(\/\/[^\n]*)|(\/\*[\s\S]*?\*\/)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b(?:const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|class|extends|new|this|super|import|export|default|from|typeof|instanceof|void|delete|throw|try|catch|finally|async|await|of|in|yield)\b)|(\b(?:true|false|null|undefined|NaN|Infinity)\b)|(0x[\da-fA-F]+|\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|([\w$]+(?=\s*\())|([<>&])|(.)/g;
+    let result = "";
+    let m: RegExpExecArray | null;
+    while ((m = tokenRe.exec(code)) !== null) {
+      const [, comment1, comment2, str, keyword, nullish, num, fnCall, special, other] = m;
+      if (comment1 || comment2) result += `<span style="color:var(--code-comment)">${esc(m[0])}</span>`;
+      else if (str) result += `<span style="color:var(--code-string)">${esc(str)}</span>`;
+      else if (keyword) result += `<span style="color:var(--code-boolean)">${keyword}</span>`;
+      else if (nullish) result += `<span style="color:var(--code-null)">${nullish}</span>`;
+      else if (num) result += `<span style="color:var(--code-number)">${num}</span>`;
+      else if (fnCall) result += `<span style="color:var(--code-key)">${fnCall}</span>`;
+      else if (special) result += esc(special);
+      else result += other ?? "";
+    }
+    return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: result }} />;
+  }
+
+  // text / unknown — plain
+  return <code className="text-sm leading-relaxed whitespace-pre-wrap">{code}</code>;
 }
 
 function HexView({ raw }: { raw: string }) {
