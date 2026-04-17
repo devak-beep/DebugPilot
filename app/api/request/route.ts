@@ -34,13 +34,18 @@ export async function POST(req: NextRequest) {
 
   try {
     let fetchBody: BodyInit | undefined
-    let fetchHeaders = { ...headers }
+    let fetchHeaders: Record<string, string> = { ...headers }
 
     if (formData && formData.length > 0 && method !== 'GET' && method !== 'HEAD') {
       const fd = new FormData()
       formData.filter(r => r.key.trim()).forEach(({ key, value }) => fd.append(key, value))
       fetchBody = fd
-      delete fetchHeaders['Content-Type']; delete fetchHeaders['content-type']
+      // Must remove Content-Type so fetch auto-sets multipart/form-data with boundary
+      delete fetchHeaders['Content-Type']
+      delete fetchHeaders['content-type']
+      // Also remove Content-Length — fetch will compute it
+      delete fetchHeaders['Content-Length']
+      delete fetchHeaders['content-length']
     } else if (method !== 'GET' && method !== 'HEAD' && requestBody) {
       fetchBody = requestBody
       if (!fetchHeaders['Content-Type'] && !fetchHeaders['content-type'])
