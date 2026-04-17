@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { saveExample } from "@/lib/api";
 import type { ApiResponse } from "@/lib/api";
 
@@ -11,6 +11,7 @@ export default function SaveExampleModal({ response, savedRequestId, defaultName
   onClose: () => void;
 }) {
   const [name, setName] = useState(defaultName ?? `Example ${response.status}`);
+  useEffect(() => { if (defaultName) setName(defaultName); }, [defaultName]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
