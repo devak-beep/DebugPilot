@@ -3,7 +3,7 @@ export interface RequestData {
   method: string;
   headers: { key: string; value: string }[];
   body: string | null;
-  formData?: { key: string; value: string }[];
+  formData?: { key: string; value: string }[] | null;
 }
 
 export interface ApiResponse {

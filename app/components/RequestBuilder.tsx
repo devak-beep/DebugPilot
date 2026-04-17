@@ -382,9 +382,9 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
     return null;
   };
 
-  const buildFormData = () => {
+  const buildFormData = (): { key: string; value: string }[] | null => {
     if (bodyType === "form-data") return formDataRows.filter(r => r.key.trim() && r.enabled).map(({ key, value }) => ({ key, value }));
-    return undefined;
+    return null;
   };
 
   const getContentTypeHeader = (): string | null => {
