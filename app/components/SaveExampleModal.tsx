@@ -11,6 +11,7 @@ export default function SaveExampleModal({ response, savedRequestId, onSaved, on
 }) {
   const [name, setName] = useState(`Example ${response.status}`);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const handleSave = async () => {
     if (!savedRequestId || !name.trim()) return;
@@ -24,7 +25,8 @@ export default function SaveExampleModal({ response, savedRequestId, onSaved, on
         timeTaken: response.timeTaken,
       });
       onSaved();
-      onClose();
+      setSaved(true);
+      setTimeout(() => { setSaved(false); onClose(); }, 1200);
     } finally {
       setSaving(false);
     }
@@ -59,10 +61,15 @@ export default function SaveExampleModal({ response, savedRequestId, onSaved, on
             {savedRequestId ? "Cancel" : "Close"}
           </button>
           {savedRequestId && (
-            <button onClick={handleSave} disabled={saving || !name.trim()}
-              className="flex-1 py-2 rounded-lg text-sm font-bold"
-              style={{ background: "var(--accent)", color: "var(--accent-text)", opacity: saving ? 0.6 : 1 }}>
-              {saving ? "Saving..." : "Save"}
+            <button onClick={handleSave} disabled={saving || saved || !name.trim()}
+              className="flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-300"
+              style={{
+                background: saved ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "var(--accent)",
+                color: saved ? "var(--accent)" : "var(--accent-text)",
+                border: saved ? "1px solid var(--accent)" : "1px solid transparent",
+                opacity: saving ? 0.6 : 1,
+              }}>
+              {saving ? "⏳ Saving..." : saved ? "✅ Saved!" : "Save"}
             </button>
           )}
         </div>
