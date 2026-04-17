@@ -309,8 +309,9 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
 
   useEffect(() => { if (method === "GET" || method === "HEAD") setBodyType("none"); }, [method]);
 
+  const [prefillApplied, setPrefillApplied] = useState(false);
   useEffect(() => {
-    if (!prefill) return;
+    if (!prefill || prefillApplied) return;
     try {
       const parsed = new URL(prefill.url);
       setUrl(parsed.origin + parsed.pathname);
@@ -330,6 +331,7 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
       setBodyType("form-data");
       setFormDataRows(prefill.formData.map(r => mkRow(r.key, r.value)));
     } else { setBodyType("none"); }
+    setPrefillApplied(true);
   }, [prefill]);
 
   const buildFinalUrl = () => {
@@ -402,7 +404,6 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
     if (bodyType === "json" && jsonError) return;
 
     const fd = buildFormData();
-    console.log('[Send] bodyType:', bodyType, '| formDataRows:', JSON.stringify(formDataRows), '| buildFormData:', JSON.stringify(fd));
 
     const builtHeaders = buildHeaders();
     const ct = getContentTypeHeader();
