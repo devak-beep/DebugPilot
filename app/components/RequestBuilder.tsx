@@ -504,13 +504,20 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
           {tab === "body" && (
             <div className="space-y-3">
               {/* Body type selector */}
-              <div className="flex flex-wrap gap-x-4 gap-y-2">
+              <div className="flex flex-wrap gap-1.5">
                 {BODY_TYPES.map(({ value, label }) => (
-                  <label key={value} className="flex items-center gap-1.5 text-sm cursor-pointer" style={{ color: "var(--text-secondary)" }}>
-                    <input type="radio" name="bodyType" value={value} checked={bodyType === value}
-                      onChange={() => setBodyType(value)} disabled={!hasBody && value !== "none"} className="accent-green-600" />
+                  <button key={value} type="button"
+                    onClick={() => { if (hasBody || value === "none") setBodyType(value); }}
+                    className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                    style={{
+                      background: bodyType === value ? "var(--accent)" : "var(--bg-input)",
+                      color: bodyType === value ? "var(--accent-text)" : "var(--text-secondary)",
+                      border: `1px solid ${bodyType === value ? "var(--accent)" : "var(--border)"}`,
+                      opacity: (!hasBody && value !== "none") ? 0.4 : 1,
+                      cursor: (!hasBody && value !== "none") ? "not-allowed" : "pointer",
+                    }}>
                     {label}
-                  </label>
+                  </button>
                 ))}
                 {!hasBody && <span className="text-xs self-center" style={{ color: "var(--text-muted)" }}>Not allowed for {method}</span>}
               </div>
