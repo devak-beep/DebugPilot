@@ -326,6 +326,9 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
     if (prefill.body) {
       try { JSON.parse(prefill.body); setBodyType("json"); setBodyJson(prefill.body); }
       catch { setBodyType("text"); setBodyText(prefill.body); }
+    } else if (prefill.formData && prefill.formData.length > 0) {
+      setBodyType("form-data");
+      setFormDataRows(prefill.formData.map(r => mkRow(r.key, r.value)));
     } else { setBodyType("none"); }
   }, [prefill]);
 
