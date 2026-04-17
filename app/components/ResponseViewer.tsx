@@ -53,26 +53,27 @@ function SyntaxHighlight({ code, lang }: { code: string; lang: string }) {
     h = h.replace(/(&lt;!--[\s\S]*?--&gt;)/g, (m) =>
       `<span style="color:var(--code-comment)">${m}</span>`);
     // doctype
-    h = h.replace(/(&lt;!DOCTYPE[^&]*&gt;)/gi, (m) =>
+    h = h.replace(/(&lt;!DOCTYPE[^>]*&gt;)/gi, (m) =>
       `<span style="color:var(--code-comment)">${m}</span>`);
     // closing tags
-    h = h.replace(/(&lt;\/)([\w:-]+)(&gt;)/g, (_, a, tag, c) =>
+    h = h.replace(/(&lt;\/)([\w:-]+)(\s*&gt;)/g, (_, a, tag, c) =>
       `<span style="color:var(--code-punctuation)">${a}</span><span style="color:var(--code-tag)">${tag}</span><span style="color:var(--code-punctuation)">${c}</span>`);
-    // opening tags — capture tag name then attributes then close
-    h = h.replace(/(&lt;)([\w:-]+)((?:\s+[\w:-]+=(?:&quot;[^"]*&quot;|'[^']*'|[\w-]*))*)(\/?)(&gt;)/g,
-      (_, open, tag, attrs, selfClose, close) => {
-        const coloredAttrs = attrs.replace(/([\w:-]+)(=)(&quot;[^"]*&quot;|'[^']*'|[\w-]*)/g,
-          (_: string, attr: string, eq: string, val: string) =>
-            `<span style="color:var(--code-attr)">${attr}</span>${eq}<span style="color:var(--code-string)">${val}</span>`
-        );
-        return `<span style="color:var(--code-punctuation)">${open}</span><span style="color:var(--code-tag)">${tag}</span>${coloredAttrs}<span style="color:var(--code-punctuation)">${selfClose}${close}</span>`;
-      });
+    // opening/self-closing tags with attributes
+    h = h.replace(/(&lt;)([\w:-]+)([\s\S]*?)(\/?&gt;)/g, (_, open, tag, attrs, close) => {
+      const coloredAttrs = attrs.replace(/([\w:-]+)(=)("([^"]*)")/g,
+        (_: string, attr: string, eq: string, val: string) =>
+          `<span style="color:var(--code-attr)">${attr}</span>${eq}<span style="color:var(--code-string)">${val}</span>`
+      ).replace(/([\w:-]+)(?==)/g, (a: string) =>
+        a.startsWith("<span") ? a : `<span style="color:var(--code-attr)">${a}</span>`
+      );
+      return `<span style="color:var(--code-punctuation)">${open}</span><span style="color:var(--code-tag)">${tag}</span>${coloredAttrs}<span style="color:var(--code-punctuation)">${close}</span>`;
+    });
   } else if (lang === "js") {
-    // comments first
+    // comments first (before anything else)
     h = h.replace(/(\/\/[^\n]*)|(\/\*[\s\S]*?\*\/)/g, (m) =>
       `<span style="color:var(--code-comment)">${m}</span>`);
-    // strings (after escaping, &quot; is used)
-    h = h.replace(/(&quot;(?:\\.|[^&])*?&quot;|'[^'\\]*(?:\\.[^'\\]*)*'|`[^`\\]*(?:\\.[^`\\]*)*`)/g, (m) =>
+    // strings — literal quotes (not &quot; since only < > are escaped)
+    h = h.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g, (m) =>
       `<span style="color:var(--code-string)">${m}</span>`);
     // keywords
     h = h.replace(
@@ -266,9 +267,9 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
             style={{ background: "var(--code-bg)", color: "var(--code-text)" }}>
             {format === "hex"
               ? <HexView raw={rawStr} />
-              : (format === "base64" || format === "text" || viewMode === "raw")
+              : (format === "base64" || format === "text")
                 ? <code className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--code-text)" }}>{displayBody}</code>
-                : <SyntaxHighlight code={prettyBody} lang={syntaxLang} />
+                : <SyntaxHighlight code={displayBody} lang={syntaxLang} />
             }
           </div>
         )}
