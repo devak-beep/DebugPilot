@@ -12,7 +12,9 @@ const METHOD_COLORS: Record<string, string> = {
 };
 const inputStyle = { background: "var(--bg-input)", border: "1px solid var(--border)", color: "var(--text-primary)" };
 
-const inputCls = "w-full px-3 py-2 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 transition-colors";({ value, onChange, placeholder, suggestions }: {
+const inputCls = "w-full px-3 py-2 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 transition-colors";
+
+function SuggestInput({ value, onChange, placeholder, suggestions }: {
   value: string; onChange: (v: string) => void; placeholder?: string; suggestions: string[];
 }) {
   const [open, setOpen] = useState(false);
