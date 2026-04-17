@@ -30,8 +30,82 @@ function formatSize(str: string) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// ─── JSON Tree ────────────────────────────────────────────────────────────────
+
+function JsonValue({ value, depth = 0 }: { value: unknown; depth?: number }) {
+  const [open, setOpen] = useState(depth < 2);
+
+  if (value === null) return <span style={{ color: "var(--code-null)" }}>null</span>;
+  if (typeof value === "boolean") return <span style={{ color: "var(--code-boolean)" }}>{String(value)}</span>;
+  if (typeof value === "number") return <span style={{ color: "var(--code-number)" }}>{value}</span>;
+  if (typeof value === "string") return <span style={{ color: "var(--code-string)" }}>"{value}"</span>;
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span style={{ color: "var(--code-punctuation)" }}>[]</span>;
+    return (
+      <span>
+        <button onClick={() => setOpen(o => !o)} className="font-mono text-xs px-1 rounded mr-1"
+          style={{ color: "var(--code-punctuation)", background: "color-mix(in srgb, var(--code-punctuation) 10%, transparent)" }}>
+          {open ? "▾" : "▸"}
+        </button>
+        <span style={{ color: "var(--code-punctuation)" }}>[{!open && <span style={{ color: "var(--code-null)" }}> {value.length} items </span>}]</span>
+        {open && (
+          <div style={{ paddingLeft: "1.25rem", borderLeft: "1px solid var(--border)", marginLeft: "0.25rem" }}>
+            {value.map((item, i) => (
+              <div key={i} className="flex gap-2 items-start py-0.5">
+                <span className="text-xs shrink-0" style={{ color: "var(--code-null)", minWidth: "1.5rem" }}>{i}</span>
+                <JsonValue value={item} depth={depth + 1} />
+              </div>
+            ))}
+          </div>
+        )}
+      </span>
+    );
+  }
+
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return <span style={{ color: "var(--code-punctuation)" }}>{"{}"}</span>;
+    return (
+      <span>
+        <button onClick={() => setOpen(o => !o)} className="font-mono text-xs px-1 rounded mr-1"
+          style={{ color: "var(--code-punctuation)", background: "color-mix(in srgb, var(--code-punctuation) 10%, transparent)" }}>
+          {open ? "▾" : "▸"}
+        </button>
+        <span style={{ color: "var(--code-punctuation)" }}>{"{"}
+          {!open && <span style={{ color: "var(--code-null)" }}> {entries.length} keys </span>}
+          {!open && "}"}
+        </span>
+        {open && (
+          <div style={{ paddingLeft: "1.25rem", borderLeft: "1px solid var(--border)", marginLeft: "0.25rem" }}>
+            {entries.map(([k, v]) => (
+              <div key={k} className="flex gap-2 items-start py-0.5 flex-wrap">
+                <span className="text-xs font-medium shrink-0" style={{ color: "var(--code-key)" }}>{k}</span>
+                <span style={{ color: "var(--code-punctuation)" }}>:</span>
+                <JsonValue value={v} depth={depth + 1} />
+              </div>
+            ))}
+            <span style={{ color: "var(--code-punctuation)" }}>{"}"}</span>
+          </div>
+        )}
+      </span>
+    );
+  }
+
+  return <span>{String(value)}</span>;
+}
+
+function JsonTree({ data }: { data: unknown }) {
+  return (
+    <div className="text-sm font-mono leading-relaxed" style={{ color: "var(--code-text)" }}>
+      <JsonValue value={data} depth={0} />
+    </div>
+  );
+}
+
+// ─── Syntax Highlight (HTML / XML / JS) ──────────────────────────────────────
+
 function SyntaxHighlight({ code, lang }: { code: string; lang: string }) {
-  // Only escape < and > — quotes stay literal
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   if (lang === "json") {
@@ -50,15 +124,12 @@ function SyntaxHighlight({ code, lang }: { code: string; lang: string }) {
   }
 
   if (lang === "html" || lang === "xml") {
-    // Process token by token using a regex that matches one tag or text at a time
     const tokenRe = /<!--[\s\S]*?-->|<!\w[^>]*>|<\/[\w:-]+\s*>|<[\w:-]+(?:\s+[\w:-]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*))?)*\s*\/?>|[^<]+/g;
     let result = "";
     let match: RegExpExecArray | null;
     while ((match = tokenRe.exec(code)) !== null) {
       const token = match[0];
-      if (token.startsWith("<!--")) {
-        result += `<span style="color:var(--code-comment)">${esc(token)}</span>`;
-      } else if (token.startsWith("<!")) {
+      if (token.startsWith("<!--") || token.startsWith("<!")) {
         result += `<span style="color:var(--code-comment)">${esc(token)}</span>`;
       } else if (token.startsWith("</")) {
         const tag = token.match(/<\/([\w:-]+)/)?.[1] ?? "";
@@ -83,27 +154,27 @@ function SyntaxHighlight({ code, lang }: { code: string; lang: string }) {
   }
 
   if (lang === "js") {
-    // Tokenize JS to avoid re-coloring inside strings/comments
     const tokenRe = /(\/\/[^\n]*)|(\/\*[\s\S]*?\*\/)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b(?:const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|class|extends|new|this|super|import|export|default|from|typeof|instanceof|void|delete|throw|try|catch|finally|async|await|of|in|yield)\b)|(\b(?:true|false|null|undefined|NaN|Infinity)\b)|(0x[\da-fA-F]+|\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|([\w$]+(?=\s*\())|([<>&])|(.)/g;
     let result = "";
     let m: RegExpExecArray | null;
     while ((m = tokenRe.exec(code)) !== null) {
-      const [, comment1, comment2, str, keyword, nullish, num, fnCall, special, other] = m;
-      if (comment1 || comment2) result += `<span style="color:var(--code-comment)">${esc(m[0])}</span>`;
+      const [, c1, c2, str, kw, nullish, num, fn, special, other] = m;
+      if (c1 || c2) result += `<span style="color:var(--code-comment)">${esc(m[0])}</span>`;
       else if (str) result += `<span style="color:var(--code-string)">${esc(str)}</span>`;
-      else if (keyword) result += `<span style="color:var(--code-boolean)">${keyword}</span>`;
+      else if (kw) result += `<span style="color:var(--code-boolean)">${kw}</span>`;
       else if (nullish) result += `<span style="color:var(--code-null)">${nullish}</span>`;
       else if (num) result += `<span style="color:var(--code-number)">${num}</span>`;
-      else if (fnCall) result += `<span style="color:var(--code-key)">${fnCall}</span>`;
+      else if (fn) result += `<span style="color:var(--code-key)">${fn}</span>`;
       else if (special) result += esc(special);
       else result += other ?? "";
     }
     return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: result }} />;
   }
 
-  // text / unknown — plain
   return <code className="text-sm leading-relaxed whitespace-pre-wrap">{code}</code>;
 }
+
+// ─── Hex View ─────────────────────────────────────────────────────────────────
 
 function HexView({ raw }: { raw: string }) {
   const bytes = Array.from(new TextEncoder().encode(raw));
@@ -116,11 +187,13 @@ function HexView({ raw }: { raw: string }) {
     rows.push(
       `<span style="color:var(--code-null)">${offset}</span>  ` +
       `<span style="color:var(--code-number)">${hex}</span>  ` +
-      `<span style="color:var(--code-string)">${ascii.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</span>`
+      `<span style="color:var(--code-string)">${ascii.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</span>`
     );
   }
   return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: rows.join("\n") }} />;
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 type ViewMode = "pretty" | "raw" | "preview";
 type BodyFormat = "json" | "html" | "xml" | "javascript" | "text" | "hex" | "base64";
@@ -135,14 +208,29 @@ function detectFormat(body: unknown, rawStr: string): BodyFormat {
 }
 
 function toHex(str: string) {
-  return Array.from(new TextEncoder().encode(str))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join(" ");
+  return Array.from(new TextEncoder().encode(str)).map(b => b.toString(16).padStart(2, "0")).join(" ");
 }
 
 function toBase64(str: string) {
   try { return btoa(unescape(encodeURIComponent(str))); } catch { return btoa(str); }
 }
+
+function prettyXmlHtml(rawStr: string) {
+  try {
+    const str = rawStr.replace(/>\s*</g, "><").trim();
+    let indent = 0;
+    return str.replace(/(<\/?[^>]+>)/g, (tag) => {
+      const isClose = tag.startsWith("</");
+      const isSelfClose = tag.endsWith("/>") || /^<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)[\s>]/i.test(tag);
+      if (isClose) indent = Math.max(0, indent - 1);
+      const line = "  ".repeat(indent) + tag;
+      if (!isClose && !isSelfClose) indent++;
+      return line;
+    }).replace(/></g, ">\n<");
+  } catch { return rawStr; }
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ResponseViewer({ response, onSaveResponse }: { response: ResponseData; onSaveResponse?: () => void }) {
   const statusColor = getStatusColor(response.status);
@@ -154,6 +242,13 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
       ? response.body
       : JSON.stringify(response.body, null, 2);
 
+  // Parse JSON object for tree view
+  const parsedJson = (() => {
+    if (isError) return null;
+    if (typeof response.body === "object" && response.body !== null) return response.body;
+    try { return JSON.parse(rawStr); } catch { return null; }
+  })();
+
   const detectedFormat = isError ? "text" : detectFormat(response.body, rawStr);
   const [format, setFormat] = useState<BodyFormat>(detectedFormat);
   const [viewMode, setViewMode] = useState<ViewMode>("pretty");
@@ -162,24 +257,8 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
   const prettyBody = (() => {
     if (format === "hex") return toHex(rawStr);
     if (format === "base64") return toBase64(rawStr);
-    if (format === "json") {
-      try { return JSON.stringify(JSON.parse(rawStr), null, 2); } catch { return rawStr; }
-    }
-    if (format === "html" || format === "xml") {
-      try {
-        // indent XML/HTML by tracking tag depth
-        const str = rawStr.replace(/>\s*</g, "><").trim();
-        let indent = 0;
-        return str.replace(/(<\/?[^>]+>)/g, (tag) => {
-          const isClose = tag.startsWith("</");
-          const isSelfClose = tag.endsWith("/>") || /^<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)[\s>]/i.test(tag);
-          if (isClose) indent = Math.max(0, indent - 1);
-          const line = "  ".repeat(indent) + tag;
-          if (!isClose && !isSelfClose) indent++;
-          return line;
-        }).replace(/></g, ">\n<");
-      } catch { return rawStr; }
-    }
+    if (format === "json") { try { return JSON.stringify(JSON.parse(rawStr), null, 2); } catch { return rawStr; } }
+    if (format === "html" || format === "xml") return prettyXmlHtml(rawStr);
     return rawStr;
   })();
 
@@ -201,6 +280,8 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
   ];
 
   const syntaxLang = format === "javascript" ? "js" : format;
+  // Show tree only for JSON in pretty mode
+  const showTree = format === "json" && viewMode === "pretty" && parsedJson !== null;
 
   return (
     <div className="rounded-xl overflow-hidden shadow-sm" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
@@ -226,9 +307,9 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
         </div>
       </div>
 
-      {/* Toolbar: format tabs + view mode + copy */}
-      <div className="flex items-center justify-between px-4 py-2 gap-2 flex-wrap" style={{ borderBottom: "1px solid var(--border)", background: "color-mix(in srgb, var(--bg-input) 60%, var(--bg-card))" }}>
-        {/* Format tabs */}
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-4 py-2 gap-2 flex-wrap"
+        style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-input)" }}>
         <div className="flex items-center gap-1 flex-wrap">
           {FORMATS.map(f => (
             <button key={f} onClick={() => setFormat(f)}
@@ -241,8 +322,6 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
             </button>
           ))}
         </div>
-
-        {/* View mode + copy */}
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
             {VIEW_MODES.map(({ id, label }) => (
@@ -282,16 +361,19 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
       {/* Body */}
       <div className="p-4">
         {viewMode === "preview" ? (
-          <iframe
-            srcDoc={displayBody}
-            sandbox="allow-scripts"
-            className="w-full rounded-lg"
+          <iframe srcDoc={displayBody} sandbox="allow-scripts" className="w-full rounded-lg"
             style={{ height: "400px", border: "1px solid var(--border)", background: "#fff" }}
-            title="Response Preview"
-          />
+            title="Response Preview" />
+        ) : showTree ? (
+          // JSON pretty → collapsible tree
+          <div className={`rounded-lg p-4 overflow-auto ${isLarge ? "max-h-64" : "max-h-[500px]"}`}
+            style={{ background: "var(--code-bg)", border: "1px solid var(--border)" }}>
+            <JsonTree data={parsedJson} />
+          </div>
         ) : (
+          // All other formats → syntax highlighted code block
           <div className={`rounded-lg p-4 overflow-auto font-mono ${isLarge ? "max-h-64" : "max-h-[500px]"}`}
-            style={{ background: "var(--code-bg)", color: "var(--code-text)" }}>
+            style={{ background: "var(--code-bg)", color: "var(--code-text)", border: "1px solid var(--border)" }}>
             {format === "hex"
               ? <HexView raw={rawStr} />
               : (format === "base64" || format === "text")

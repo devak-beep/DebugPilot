@@ -377,6 +377,7 @@ export default function Home() {
         <SaveExampleModal
           response={activeTab.response}
           savedRequestId={activeTab.savedRequestId ?? null}
+          defaultName={activeTab.savedName}
           onSaved={loadCollections}
           onClose={() => setSaveExampleTarget(false)} />
       )}

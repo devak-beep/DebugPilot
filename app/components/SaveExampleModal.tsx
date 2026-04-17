@@ -3,13 +3,14 @@ import { useState } from "react";
 import { saveExample } from "@/lib/api";
 import type { ApiResponse } from "@/lib/api";
 
-export default function SaveExampleModal({ response, savedRequestId, onSaved, onClose }: {
+export default function SaveExampleModal({ response, savedRequestId, defaultName, onSaved, onClose }: {
   response: ApiResponse;
   savedRequestId: string | null;
+  defaultName?: string;
   onSaved: () => void;
   onClose: () => void;
 }) {
-  const [name, setName] = useState(`Example ${response.status}`);
+  const [name, setName] = useState(defaultName ?? `Example ${response.status}`);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
