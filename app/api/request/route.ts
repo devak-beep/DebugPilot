@@ -36,20 +36,17 @@ export async function POST(req: NextRequest) {
     let fetchHeaders: Record<string, string> = { ...headers }
 
     if (formData && formData.length > 0 && method !== 'GET' && method !== 'HEAD') {
-      const boundary = `----FormBoundary${Math.random().toString(36).slice(2)}`
-      const parts: string[] = []
+      const fd = new FormData()
       for (const { key, value } of formData.filter(r => r.key.trim())) {
-        parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="${key}"\r\n\r\n${value}`)
+        fd.append(key, value)
       }
-      const bodyStr = parts.join('\r\n') + `\r\n--${boundary}--`
-      fetchBody = bodyStr
-      fetchHeaders = {
-        ...fetchHeaders,
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Content-Length': String(Buffer.byteLength(bodyStr)),
+      fetchBody = fd
+      // Remove any user-supplied Content-Type so fetch sets it with the correct boundary
+      for (const k of Object.keys(fetchHeaders)) {
+        if (k.toLowerCase() === 'content-type' || k.toLowerCase() === 'content-length') {
+          delete fetchHeaders[k]
+        }
       }
-      delete fetchHeaders['content-type']
-      delete fetchHeaders['content-length']
     } else if (method !== 'GET' && method !== 'HEAD' && requestBody) {
       fetchBody = requestBody
       if (!fetchHeaders['Content-Type'] && !fetchHeaders['content-type'])

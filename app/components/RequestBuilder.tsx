@@ -212,14 +212,14 @@ const AUTH_TYPES: { value: AuthType; label: string }[] = [
 
 function mkRow(key = "", value = ""): KVRow { return { key, value, description: "", enabled: true }; }
 
-function parseCurl(raw: string): Partial<{ method: string; url: string; headers: KVRow[]; body: string }> | null {
+function parseCurl(raw: string): Partial<{ method: string; url: string; headers: KVRow[]; body: string; formData: KVRow[] }> | null {
   try {
     // normalize line continuations and collapse whitespace
     const s = raw.replace(/\\\n/g, " ").replace(/\s+/g, " ").trim();
     if (!s.startsWith("curl")) return null;
 
-    const result: { method: string; url: string; headers: KVRow[]; body: string } = {
-      method: "GET", url: "", headers: [], body: "",
+    const result: { method: string; url: string; headers: KVRow[]; body: string; formData: KVRow[] } = {
+      method: "GET", url: "", headers: [], body: "", formData: [],
     };
 
     // tokenize respecting quotes
@@ -240,6 +240,11 @@ function parseCurl(raw: string): Partial<{ method: string; url: string; headers:
       else if (t === "-H" || t === "--header") {
         const h = tokens[++i]; const colon = h.indexOf(":");
         if (colon > 0) result.headers.push(mkRow(h.slice(0, colon).trim(), h.slice(colon + 1).trim()));
+      }
+      else if (t === "-F" || t === "--form") {
+        const pair = tokens[++i]; const eq = pair.indexOf("=");
+        if (eq > 0) result.formData = [...(result.formData ?? []), mkRow(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim())];
+        if (result.method === "GET") result.method = "POST";
       }
       else if (t === "-d" || t === "--data" || t === "--data-raw" || t === "--data-binary") {
         result.body = tokens[++i];
@@ -298,7 +303,10 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
     setUrl(parsed.url);
     if (parsed.method) setMethod(parsed.method);
     if (parsed.headers?.length) setHeaders([...parsed.headers, mkRow()]);
-    if (parsed.body) {
+    if (parsed.formData?.length) {
+      setBodyType("form-data");
+      setFormDataRows([...parsed.formData, mkRow()]);
+    } else if (parsed.body) {
       try { JSON.parse(parsed.body); setBodyType("json"); setBodyJson(parsed.body); }
       catch { setBodyType("text"); setBodyText(parsed.body); }
     }
