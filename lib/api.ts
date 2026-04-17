@@ -164,6 +164,10 @@ export async function deleteExample(savedRequestId: string, exampleId: string) {
   await fetch(`/api/saved-requests/${savedRequestId}/examples/${exampleId}`, { method: 'DELETE' });
 }
 
+export async function renameExample(savedRequestId: string, exampleId: string, name: string) {
+  await fetch(`/api/saved-requests/${savedRequestId}/examples/${exampleId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+}
+
 export async function getShareToken(id: string): Promise<string> {
   const res = await fetch(`/api/saved-requests/${id}/share`)
   const data = await res.json()

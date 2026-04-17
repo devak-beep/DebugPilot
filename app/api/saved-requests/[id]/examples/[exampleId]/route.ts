@@ -10,3 +10,12 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ exa
   await db.execute({ sql: 'DELETE FROM SavedExample WHERE id = ?', args: [exampleId] })
   return NextResponse.json({ ok: true })
 }
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ exampleId: string }> }) {
+  const session = await auth()
+  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { exampleId } = await params
+  const { name } = await req.json()
+  await db.execute({ sql: 'UPDATE SavedExample SET name = ? WHERE id = ?', args: [name, exampleId] })
+  return NextResponse.json({ ok: true })
+}

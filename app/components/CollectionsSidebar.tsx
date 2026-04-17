@@ -6,7 +6,7 @@ import {
   createCollection, createFolder,
   deleteCollection, deleteFolder, deleteSavedRequest,
   renameCollection, renameFolder, renameSavedRequest,
-  deleteExample, getShareToken,
+  deleteExample, renameExample, getShareToken,
   clearHistory, moveRequest, duplicateRequest,
 } from "@/lib/api";
 import type { SavedExample } from "@/lib/api";
@@ -42,14 +42,28 @@ function statusColor(s: number) {
   return "#ef4444";
 }
 
-function ExampleItem({ example, onDelete, onLoad }: { example: SavedExample; onDelete: () => void; onLoad: () => void }) {
+function ExampleItem({ example, savedRequestId, onDelete, onLoad, onRefresh }: {
+  example: SavedExample; savedRequestId: string; onDelete: () => void; onLoad: () => void; onRefresh: () => void;
+}) {
+  const [renaming, setRenaming] = useState(false);
   return (
-    <div className="flex items-center gap-2 px-2 py-1 rounded group cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]"
-      style={{ color: "var(--text-muted)" }} onClick={onLoad}>
-      <span className="text-xs font-bold shrink-0" style={{ color: statusColor(example.status) }}>{example.status}</span>
-      <span className="flex-1 text-xs truncate">{example.name}</span>
-      <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        className="opacity-0 group-hover:opacity-100 text-xs px-1 shrink-0" style={{ color: "#f87171" }}>✕</button>
+    <div>
+      <div className="flex items-center gap-2 px-2 py-1 rounded group cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]"
+        style={{ color: "var(--text-muted)" }} onClick={onLoad}>
+        <span className="text-xs font-bold shrink-0" style={{ color: statusColor(example.status) }}>{example.status}</span>
+        <span className="flex-1 text-xs truncate">{example.name}</span>
+        <DotsMenu items={[
+          { label: "✏️ Rename", onClick: () => setRenaming(true) },
+          { label: "🗑 Delete", danger: true, onClick: onDelete },
+        ]} />
+      </div>
+      {renaming && (
+        <div className="px-2 pb-1">
+          <InlineInput defaultValue={example.name} placeholder="Example name"
+            onConfirm={async (name) => { await renameExample(savedRequestId, example.id, name); setRenaming(false); onRefresh(); }}
+            onCancel={() => setRenaming(false)} />
+        </div>
+      )}
     </div>
   );
 }
@@ -167,8 +181,9 @@ function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefre
       {open && hasExamples && (
         <div className="ml-4 border-l pl-2 space-y-0.5" style={{ borderColor: "var(--border)" }}>
           {req.examples.map(ex => (
-            <ExampleItem key={ex.id} example={ex}
+            <ExampleItem key={ex.id} example={ex} savedRequestId={req.id}
               onLoad={() => onLoadExample(ex)}
+              onRefresh={onRefresh}
               onDelete={() => onConfirmDelete(`Delete example "${ex.name}"?`, async () => { await deleteExample(req.id, ex.id); onRefresh(); })} />
           ))}
         </div>
