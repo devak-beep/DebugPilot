@@ -14,6 +14,79 @@ const inputStyle = { background: "var(--bg-input)", border: "1px solid var(--bor
 
 const inputCls = "w-full px-3 py-2 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 transition-colors";
 
+// Shared syntax highlighter (reused from ResponseViewer logic)
+function highlight(code: string, lang: "json" | "xml" | "graphql" | "text"): string {
+  let h = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  if (lang === "json") {
+    h = h.replace(
+      /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?|[{}\[\],:])/g,
+      (m) => {
+        if (/^[{}\[\],:]$/.test(m)) return `<span style="color:var(--code-punctuation)">${m}</span>`;
+        if (/^"/.test(m)) return /:$/.test(m) ? `<span style="color:var(--code-key)">${m}</span>` : `<span style="color:var(--code-string)">${m}</span>`;
+        if (/true|false/.test(m)) return `<span style="color:var(--code-boolean)">${m}</span>`;
+        if (/null/.test(m)) return `<span style="color:var(--code-null)">${m}</span>`;
+        return `<span style="color:var(--code-number)">${m}</span>`;
+      }
+    );
+  } else if (lang === "xml") {
+    h = h.replace(/(&lt;!--[\s\S]*?--&gt;)/g, (m) => `<span style="color:var(--code-comment)">${m}</span>`);
+    h = h.replace(/(&lt;\/)([\w:-]+)(&gt;)/g, (_, a, tag, c) =>
+      `<span style="color:var(--code-punctuation)">${a}</span><span style="color:var(--code-tag)">${tag}</span><span style="color:var(--code-punctuation)">${c}</span>`);
+    h = h.replace(/(&lt;)([\w:-]+)((?:\s+[\w:-]+=(?:&quot;[^"]*&quot;|'[^']*'|[\w-]*))*)(\/?)(&gt;)/g,
+      (_, open, tag, attrs, sc, close) => {
+        const ca = attrs.replace(/([\w:-]+)(=)(&quot;[^"]*&quot;|'[^']*'|[\w-]*)/g,
+          (_: string, a: string, eq: string, v: string) => `<span style="color:var(--code-attr)">${a}</span>${eq}<span style="color:var(--code-string)">${v}</span>`);
+        return `<span style="color:var(--code-punctuation)">${open}</span><span style="color:var(--code-tag)">${tag}</span>${ca}<span style="color:var(--code-punctuation)">${sc}${close}</span>`;
+      });
+  } else if (lang === "graphql") {
+    h = h.replace(/(#[^\n]*)/g, (m) => `<span style="color:var(--code-comment)">${m}</span>`);
+    h = h.replace(/\b(query|mutation|subscription|fragment|on|type|input|enum|interface|union|scalar|schema|directive|extend)\b/g,
+      (m) => `<span style="color:var(--code-boolean)">${m}</span>`);
+    h = h.replace(/(&quot;[^&]*&quot;)/g, (m) => `<span style="color:var(--code-string)">${m}</span>`);
+    h = h.replace(/\b(\d+(?:\.\d+)?)\b/g, (m) => `<span style="color:var(--code-number)">${m}</span>`);
+    h = h.replace(/\b(true|false|null)\b/g, (m) => `<span style="color:var(--code-null)">${m}</span>`);
+    h = h.replace(/\b([\w]+)(?=\s*[({:])/g, (m) => `<span style="color:var(--code-key)">${m}</span>`);
+  }
+  return h;
+}
+
+function CodeEditor({ value, onChange, lang, placeholder, rows = 8 }: {
+  value: string;
+  onChange: (v: string) => void;
+  lang: "json" | "xml" | "graphql" | "text";
+  placeholder?: string;
+  rows?: number;
+}) {
+  const minHeight = `${rows * 1.625}rem`;
+  const sharedStyle: React.CSSProperties = {
+    fontFamily: "var(--font-geist-mono, monospace)",
+    fontSize: "0.875rem",
+    lineHeight: "1.625",
+    padding: "0.75rem 1rem",
+    margin: 0,
+    border: "none",
+    outline: "none",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-all",
+    minHeight,
+    width: "100%",
+    boxSizing: "border-box",
+  };
+  return (
+    <div className="relative rounded-lg overflow-hidden"
+      style={{ background: "var(--code-bg)", border: "1px solid var(--border)" }}>
+      {/* highlighted layer */}
+      <pre aria-hidden style={{ ...sharedStyle, color: "var(--code-text)", pointerEvents: "none", position: "absolute", top: 0, left: 0, zIndex: 1 }}
+        dangerouslySetInnerHTML={{ __html: highlight(value, lang) + "\n" }} />
+      {/* editable layer */}
+      <textarea value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder} rows={rows} spellCheck={false}
+        className="focus:ring-2 focus:ring-green-500/40 resize-y"
+        style={{ ...sharedStyle, background: "transparent", color: "transparent", caretColor: "var(--code-text)", position: "relative", zIndex: 2 }} />
+    </div>
+  );
+}
+
 function SuggestInput({ value, onChange, placeholder, suggestions }: {
   value: string; onChange: (v: string) => void; placeholder?: string; suggestions: string[];
 }) {
@@ -116,10 +189,6 @@ const AUTH_TYPES: { value: AuthType; label: string }[] = [
   { value: "oauth2", label: "OAuth 2.0" },
   { value: "digest", label: "Digest Auth" },
 ];
-
-const textareaStyle = {
-  background: "var(--bg-input)", border: "1px solid var(--border)", color: "var(--text-primary)",
-};
 
 function mkRow(key = "", value = ""): KVRow { return { key, value, description: "", enabled: true }; }
 
@@ -419,40 +488,26 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
 
               {bodyType === "json" && (
                 <div>
-                  <textarea value={bodyJson} rows={8} placeholder={'{\n  "key": "value"\n}'}
-                    onChange={(e) => { setBodyJson(e.target.value); try { JSON.parse(e.target.value); setJsonError(null); } catch { setJsonError(e.target.value.trim() ? "Invalid JSON" : null); } }}
-                    className="w-full px-4 py-3 rounded-lg font-mono text-sm focus:outline-none focus:ring-2"
-                    style={{ ...textareaStyle, border: `1px solid ${jsonError ? "#f87171" : "var(--border)"}` }} />
+                  <CodeEditor value={bodyJson} onChange={(v) => { setBodyJson(v); try { JSON.parse(v); setJsonError(null); } catch { setJsonError(v.trim() ? "Invalid JSON" : null); } }}
+                    lang="json" placeholder={'{\n  "key": "value"\n}'} />
                   {jsonError && <p className="text-red-500 text-xs mt-1">{jsonError}</p>}
                 </div>
               )}
 
               {bodyType === "xml" && (
-                <textarea value={bodyXml} rows={8} placeholder={"<root>\n  <key>value</key>\n</root>"}
-                  onChange={(e) => setBodyXml(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg font-mono text-sm focus:outline-none focus:ring-2"
-                  style={textareaStyle} />
+                <CodeEditor value={bodyXml} onChange={setBodyXml} lang="xml" placeholder={"<root>\n  <key>value</key>\n</root>"} />
               )}
 
               {bodyType === "text" && (
-                <textarea value={bodyText} rows={8} placeholder="Plain text body..."
-                  onChange={(e) => setBodyText(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg font-mono text-sm focus:outline-none focus:ring-2"
-                  style={textareaStyle} />
+                <CodeEditor value={bodyText} onChange={setBodyText} lang="text" placeholder="Plain text body..." />
               )}
 
               {bodyType === "graphql" && (
                 <div className="space-y-2">
                   <label className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Query</label>
-                  <textarea value={graphqlQuery} rows={6} placeholder={"query {\n  users {\n    id\n    name\n  }\n}"}
-                    onChange={(e) => setGraphqlQuery(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg font-mono text-sm focus:outline-none focus:ring-2"
-                    style={textareaStyle} />
+                  <CodeEditor value={graphqlQuery} onChange={setGraphqlQuery} lang="graphql" placeholder={"query {\n  users {\n    id\n    name\n  }\n}"} />
                   <label className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Variables (JSON)</label>
-                  <textarea value={graphqlVars} rows={3} placeholder={'{ "id": 1 }'}
-                    onChange={(e) => setGraphqlVars(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg font-mono text-sm focus:outline-none focus:ring-2"
-                    style={textareaStyle} />
+                  <CodeEditor value={graphqlVars} onChange={setGraphqlVars} lang="json" placeholder={'{ "id": 1 }'} rows={3} />
                 </div>
               )}
 
@@ -574,8 +629,7 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
               <textarea value={curlInput} onChange={e => { setCurlInput(e.target.value); setCurlError(null); }}
                 rows={6} placeholder={`curl -X POST https://api.example.com/users \\\n  -H "Content-Type: application/json" \\\n  -d '{"name":"John"}'`}
                 className="w-full px-3 py-2 rounded-lg text-sm font-mono focus:outline-none resize-none"
-                style={{ background: "var(--bg-input)", border: `1px solid ${curlError ? "#f87171" : "var(--border)"}`, color: "var(--text-primary)" }} />
-              {curlError && <p className="text-xs" style={{ color: "#f87171" }}>{curlError}</p>}
+                style={{ background: "var(--bg-input)", border: `1px solid ${curlError ? "#f87171" : "var(--border)"}`, color: "var(--text-primary)" }} />              {curlError && <p className="text-xs" style={{ color: "#f87171" }}>{curlError}</p>}
             </div>
             <div style={{ height: "1px", background: "var(--border)" }} />
             <div className="flex gap-3 px-6 py-4">

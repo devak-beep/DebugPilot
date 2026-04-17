@@ -31,62 +31,82 @@ function formatSize(str: string) {
 }
 
 function SyntaxHighlight({ code, lang }: { code: string; lang: string }) {
-  let highlighted = code
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  let h = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   if (lang === "json") {
-    highlighted = highlighted.replace(
-      /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
-      (match) => {
-        let cls = "var(--code-number)";
-        if (/^"/.test(match)) cls = /:$/.test(match) ? "var(--code-key)" : "var(--code-string)";
-        else if (/true|false/.test(match)) cls = "var(--code-boolean)";
-        else if (/null/.test(match)) cls = "var(--code-null)";
-        return `<span style="color:${cls}">${match}</span>`;
+    h = h.replace(
+      /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?|[{}\[\],:])/g,
+      (m) => {
+        if (/^[{}\[\]]$/.test(m)) return `<span style="color:var(--code-punctuation)">${m}</span>`;
+        if (/^[,:]$/.test(m)) return `<span style="color:var(--code-punctuation)">${m}</span>`;
+        if (/^"/.test(m)) {
+          if (/:$/.test(m)) return `<span style="color:var(--code-key)">${m}</span>`;
+          return `<span style="color:var(--code-string)">${m}</span>`;
+        }
+        if (/true|false/.test(m)) return `<span style="color:var(--code-boolean)">${m}</span>`;
+        if (/null/.test(m)) return `<span style="color:var(--code-null)">${m}</span>`;
+        return `<span style="color:var(--code-number)">${m}</span>`;
       }
     );
   } else if (lang === "html" || lang === "xml") {
-    // tag names
-    highlighted = highlighted.replace(/(&lt;\/?)([\w:-]+)/g, (_, bracket, tag) =>
-      `<span style="color:var(--code-null)">${bracket}</span><span style="color:var(--code-boolean)">${tag}</span>`
-    );
-    // attribute names
-    highlighted = highlighted.replace(/\s([\w:-]+)(=)/g, (_, attr, eq) =>
-      ` <span style="color:var(--code-key)">${attr}</span>${eq}`
-    );
-    // attribute values
-    highlighted = highlighted.replace(/(&#34;|&quot;|")(.*?)(&#34;|&quot;|")/g, (_, q1, val, q2) =>
-      `<span style="color:var(--code-string)">${q1}${val}${q2}</span>`
-    );
-    // closing brackets
-    highlighted = highlighted.replace(/(\/?&gt;)/g, (m) =>
-      `<span style="color:var(--code-null)">${m}</span>`
-    );
-  } else if (lang === "js") {
-    // strings
-    highlighted = highlighted.replace(/(&#34;.*?&#34;|'[^']*'|`[^`]*`)/g, (m) =>
-      `<span style="color:var(--code-string)">${m}</span>`
-    );
-    // keywords
-    highlighted = highlighted.replace(
-      /\b(const|let|var|function|return|if|else|for|while|class|import|export|default|new|this|typeof|null|undefined|true|false|async|await|=&gt;)\b/g,
-      (m) => `<span style="color:var(--code-boolean)">${m}</span>`
-    );
-    // numbers
-    highlighted = highlighted.replace(/\b(\d+(?:\.\d+)?)\b/g, (m) =>
-      `<span style="color:var(--code-number)">${m}</span>`
-    );
     // comments
-    highlighted = highlighted.replace(/(\/\/[^\n]*)/g, (m) =>
-      `<span style="color:var(--code-null)">${m}</span>`
-    );
-    // function/method names
-    highlighted = highlighted.replace(/\b([\w$]+)(?=\s*\()/g, (m) =>
-      `<span style="color:var(--code-key)">${m}</span>`
-    );
+    h = h.replace(/(&lt;!--[\s\S]*?--&gt;)/g, (m) =>
+      `<span style="color:var(--code-comment)">${m}</span>`);
+    // doctype
+    h = h.replace(/(&lt;!DOCTYPE[^&]*&gt;)/gi, (m) =>
+      `<span style="color:var(--code-comment)">${m}</span>`);
+    // closing tags
+    h = h.replace(/(&lt;\/)([\w:-]+)(&gt;)/g, (_, a, tag, c) =>
+      `<span style="color:var(--code-punctuation)">${a}</span><span style="color:var(--code-tag)">${tag}</span><span style="color:var(--code-punctuation)">${c}</span>`);
+    // opening tags — capture tag name then attributes then close
+    h = h.replace(/(&lt;)([\w:-]+)((?:\s+[\w:-]+=(?:&quot;[^"]*&quot;|'[^']*'|[\w-]*))*)(\/?)(&gt;)/g,
+      (_, open, tag, attrs, selfClose, close) => {
+        const coloredAttrs = attrs.replace(/([\w:-]+)(=)(&quot;[^"]*&quot;|'[^']*'|[\w-]*)/g,
+          (_: string, attr: string, eq: string, val: string) =>
+            `<span style="color:var(--code-attr)">${attr}</span>${eq}<span style="color:var(--code-string)">${val}</span>`
+        );
+        return `<span style="color:var(--code-punctuation)">${open}</span><span style="color:var(--code-tag)">${tag}</span>${coloredAttrs}<span style="color:var(--code-punctuation)">${selfClose}${close}</span>`;
+      });
+  } else if (lang === "js") {
+    // comments first
+    h = h.replace(/(\/\/[^\n]*)|(\/\*[\s\S]*?\*\/)/g, (m) =>
+      `<span style="color:var(--code-comment)">${m}</span>`);
+    // strings (after escaping, &quot; is used)
+    h = h.replace(/(&quot;(?:\\.|[^&])*?&quot;|'[^'\\]*(?:\\.[^'\\]*)*'|`[^`\\]*(?:\\.[^`\\]*)*`)/g, (m) =>
+      `<span style="color:var(--code-string)">${m}</span>`);
+    // keywords
+    h = h.replace(
+      /\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|class|extends|new|this|super|import|export|default|from|typeof|instanceof|void|delete|throw|try|catch|finally|async|await|of|in|yield)\b/g,
+      (m) => `<span style="color:var(--code-boolean)">${m}</span>`);
+    // booleans/null/undefined
+    h = h.replace(/\b(true|false|null|undefined|NaN|Infinity)\b/g, (m) =>
+      `<span style="color:var(--code-null)">${m}</span>`);
+    // numbers
+    h = h.replace(/\b(0x[\da-fA-F]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b/g, (m) =>
+      `<span style="color:var(--code-number)">${m}</span>`);
+    // function/method calls
+    h = h.replace(/\b([\w$]+)(?=\s*\()/g, (m) =>
+      `<span style="color:var(--code-key)">${m}</span>`);
   }
 
-  return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: highlighted }} />;
+  return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: h }} />;
+}
+
+function HexView({ raw }: { raw: string }) {
+  const bytes = Array.from(new TextEncoder().encode(raw));
+  const rows: string[] = [];
+  for (let i = 0; i < bytes.length; i += 16) {
+    const chunk = bytes.slice(i, i + 16);
+    const offset = i.toString(16).padStart(8, "0");
+    const hex = chunk.map(b => b.toString(16).padStart(2, "0")).join(" ").padEnd(47, " ");
+    const ascii = chunk.map(b => (b >= 32 && b < 127) ? String.fromCharCode(b) : ".").join("");
+    rows.push(
+      `<span style="color:var(--code-null)">${offset}</span>  ` +
+      `<span style="color:var(--code-number)">${hex}</span>  ` +
+      `<span style="color:var(--code-string)">${ascii.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</span>`
+    );
+  }
+  return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: rows.join("\n") }} />;
 }
 
 type ViewMode = "pretty" | "raw" | "preview";
@@ -244,9 +264,11 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
         ) : (
           <div className={`rounded-lg p-4 overflow-auto font-mono ${isLarge ? "max-h-64" : "max-h-[500px]"}`}
             style={{ background: "var(--code-bg)", color: "var(--code-text)" }}>
-            {(viewMode === "pretty" && format !== "hex" && format !== "base64" && format !== "text")
-              ? <SyntaxHighlight code={prettyBody} lang={syntaxLang} />
-              : <code className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--code-text)" }}>{displayBody}</code>
+            {format === "hex"
+              ? <HexView raw={rawStr} />
+              : (format === "base64" || format === "text" || viewMode === "raw")
+                ? <code className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--code-text)" }}>{displayBody}</code>
+                : <SyntaxHighlight code={prettyBody} lang={syntaxLang} />
             }
           </div>
         )}
