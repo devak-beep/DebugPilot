@@ -19,6 +19,14 @@
   --tab-active-text: #16a34a;
   --badge-json-bg: #dcfce7;
   --badge-json-text: #15803d;
+  /* code block */
+  --code-bg: #f6f8fa;
+  --code-text: #24292e;
+  --code-key: #005cc5;
+  --code-string: #0550ae;
+  --code-number: #e36209;
+  --code-boolean: #d73a49;
+  --code-null: #6a737d;
 }
 
 .dark {
@@ -38,6 +46,14 @@
   --tab-active-text: #22c55e;
   --badge-json-bg: #14532d;
   --badge-json-text: #86efac;
+  /* code block */
+  --code-bg: #0d1117;
+  --code-text: #c9d1d9;
+  --code-key: #79c0ff;
+  --code-string: #a5d6ff;
+  --code-number: #ffa657;
+  --code-boolean: #ff7b72;
+  --code-null: #8b949e;
 }
 
 body {

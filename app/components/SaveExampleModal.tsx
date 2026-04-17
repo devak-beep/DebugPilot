@@ -62,13 +62,16 @@ export default function SaveExampleModal({ response, savedRequestId, onSaved, on
           </button>
           {savedRequestId && (
             <button onClick={handleSave} disabled={saving || saved || !name.trim()}
-              className="flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-300"
+              className="flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-300 flex items-center justify-center gap-1.5"
               style={{
                 background: saved ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "var(--accent)",
                 color: saved ? "var(--accent)" : "var(--accent-text)",
                 border: saved ? "1px solid var(--accent)" : "1px solid transparent",
                 opacity: saving ? 0.6 : 1,
               }}>
+              {saved
+                ? <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5l3.5 3.5 5.5-5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                : null}
               {saving ? "Saving..." : saved ? "Saved" : "Save"}
             </button>
           )}

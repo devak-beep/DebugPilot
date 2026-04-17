@@ -38,20 +38,55 @@ function SyntaxHighlight({ code, lang }: { code: string; lang: string }) {
     highlighted = highlighted.replace(
       /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
       (match) => {
-        let cls = "color:#d97706";
-        if (/^"/.test(match)) cls = /:$/.test(match) ? "color:#22c55e" : "color:#86efac";
-        else if (/true|false/.test(match)) cls = "color:#a78bfa";
-        else if (/null/.test(match)) cls = "color:#f87171";
-        return `<span style="${cls}">${match}</span>`;
+        let cls = "var(--code-number)";
+        if (/^"/.test(match)) cls = /:$/.test(match) ? "var(--code-key)" : "var(--code-string)";
+        else if (/true|false/.test(match)) cls = "var(--code-boolean)";
+        else if (/null/.test(match)) cls = "var(--code-null)";
+        return `<span style="color:${cls}">${match}</span>`;
       }
     );
   } else if (lang === "html" || lang === "xml") {
-    highlighted = highlighted
-      .replace(/(&lt;\/?[\w\s="/.':;#-\/\?]+&gt;)/g, (m) => `<span style="color:#86efac">${m}</span>`)
-      .replace(/(&amp;\w+;)/g, (m) => `<span style="color:#f87171">${m}</span>`);
+    // tag names
+    highlighted = highlighted.replace(/(&lt;\/?)([\w:-]+)/g, (_, bracket, tag) =>
+      `<span style="color:var(--code-null)">${bracket}</span><span style="color:var(--code-boolean)">${tag}</span>`
+    );
+    // attribute names
+    highlighted = highlighted.replace(/\s([\w:-]+)(=)/g, (_, attr, eq) =>
+      ` <span style="color:var(--code-key)">${attr}</span>${eq}`
+    );
+    // attribute values
+    highlighted = highlighted.replace(/(&#34;|&quot;|")(.*?)(&#34;|&quot;|")/g, (_, q1, val, q2) =>
+      `<span style="color:var(--code-string)">${q1}${val}${q2}</span>`
+    );
+    // closing brackets
+    highlighted = highlighted.replace(/(\/?&gt;)/g, (m) =>
+      `<span style="color:var(--code-null)">${m}</span>`
+    );
+  } else if (lang === "js") {
+    // strings
+    highlighted = highlighted.replace(/(&#34;.*?&#34;|'[^']*'|`[^`]*`)/g, (m) =>
+      `<span style="color:var(--code-string)">${m}</span>`
+    );
+    // keywords
+    highlighted = highlighted.replace(
+      /\b(const|let|var|function|return|if|else|for|while|class|import|export|default|new|this|typeof|null|undefined|true|false|async|await|=&gt;)\b/g,
+      (m) => `<span style="color:var(--code-boolean)">${m}</span>`
+    );
+    // numbers
+    highlighted = highlighted.replace(/\b(\d+(?:\.\d+)?)\b/g, (m) =>
+      `<span style="color:var(--code-number)">${m}</span>`
+    );
+    // comments
+    highlighted = highlighted.replace(/(\/\/[^\n]*)/g, (m) =>
+      `<span style="color:var(--code-null)">${m}</span>`
+    );
+    // function/method names
+    highlighted = highlighted.replace(/\b([\w$]+)(?=\s*\()/g, (m) =>
+      `<span style="color:var(--code-key)">${m}</span>`
+    );
   }
 
-  return <code className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: highlighted }} />;
+  return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: highlighted }} />;
 }
 
 type ViewMode = "pretty" | "raw" | "preview";
@@ -134,8 +169,9 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
           <span style={{ color: "var(--text-muted)" }}>Size: <strong style={{ color: "var(--text-secondary)" }}>{bodySize}</strong></span>
           {onSaveResponse && (
             <button onClick={onSaveResponse}
-              className="text-xs px-3 py-1 rounded-lg font-medium transition-colors"
+              className="text-xs px-3 py-1 rounded-lg font-medium transition-colors flex items-center gap-1.5"
               style={{ background: "color-mix(in srgb, var(--accent) 15%, transparent)", color: "var(--accent)", border: "1px solid var(--border)" }}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 11H2c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1h4l4 4v5c0 .55-.45 1-1 1z" stroke="currentColor" strokeWidth="1" fill="none"/><path d="M8 1v2h2M3 6h6M3 8h6" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>
               Save Response
             </button>
           )}
@@ -174,12 +210,16 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
             ))}
           </div>
           <button onClick={handleCopy}
-            className="px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200"
+            className="px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1.5"
             style={{
               background: copied ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "var(--bg-input)",
               color: copied ? "var(--accent)" : "var(--text-muted)",
               border: copied ? "1px solid var(--accent)" : "1px solid var(--border)",
             }}>
+            {copied
+              ? <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              : <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="4" y="1" width="7" height="8" rx="1" stroke="currentColor" strokeWidth="1.2"/><rect x="1" y="3" width="7" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" fill="var(--bg-input)"/></svg>
+            }
             {copied ? "Copied" : "Copy"}
           </button>
         </div>
@@ -203,10 +243,10 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
           />
         ) : (
           <div className={`rounded-lg p-4 overflow-auto font-mono ${isLarge ? "max-h-64" : "max-h-[500px]"}`}
-            style={{ background: "#0a0a0a" }}>
+            style={{ background: "var(--code-bg)", color: "var(--code-text)" }}>
             {(viewMode === "pretty" && format !== "hex" && format !== "base64" && format !== "text")
               ? <SyntaxHighlight code={prettyBody} lang={syntaxLang} />
-              : <code className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#d1d5db" }}>{displayBody}</code>
+              : <code className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--code-text)" }}>{displayBody}</code>
             }
           </div>
         )}

@@ -359,13 +359,17 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
               setSaveState("saved");
               setTimeout(() => setSaveState("idle"), 2000);
             }}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 flex items-center gap-1.5"
               style={{
                 background: saveState === "saved" ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "var(--bg-input)",
                 color: saveState === "saved" ? "var(--accent)" : "var(--accent)",
                 border: saveState === "saved" ? "1px solid var(--accent)" : "1px solid var(--border)",
                 opacity: saveState === "saving" ? 0.6 : 1,
               }}>
+              {saveState === "saved"
+                ? <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l4 4 6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                : <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M11 13H3c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1h5l4 4v7c0 .55-.45 1-1 1z" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M9 1v3h3M4 7h6M4 9h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+              }
               {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved" : "Save"}
             </button>
           )}
