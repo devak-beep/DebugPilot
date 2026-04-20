@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { Collection, Folder, SavedRequest, HistoryEntry } from "@/lib/api";
 import {
   createCollection, createFolder,
   deleteCollection, deleteFolder, deleteSavedRequest,
   renameCollection, renameFolder, renameSavedRequest,
   deleteExample, renameExample, getShareToken,
-  clearHistory, moveRequest, duplicateRequest,
+  clearHistory, moveRequest, duplicateRequest, reorderItems,
 } from "@/lib/api";
 import type { SavedExample } from "@/lib/api";
 import ConfirmModal from "./ConfirmModal";
@@ -144,12 +144,13 @@ function InlineInput({ defaultValue = "", onConfirm, onCancel, placeholder }: {
   );
 }
 
-function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefresh, onShare, onLoadExample, onDuplicate, onMove }: {
+function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefresh, onShare, onLoadExample, onDuplicate, onMove, dragHandleProps }: {
   req: SavedRequest; onLoad: () => void; onDelete: () => void; onRename: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void; onRefresh: () => void;
   onShare: (url: string, reqData: { method: string; url: string; headers: Record<string, string>; body: string | null }) => void;
   onLoadExample: (ex: SavedExample) => void;
   onDuplicate: () => void; onMove: () => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }) {
   const [open, setOpen] = useState(false);
   const hasExamples = req.examples?.length > 0;
@@ -163,7 +164,8 @@ function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefre
   return (
     <div>
       <div className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer group hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]"
-        onClick={onLoad}>
+        onClick={onLoad} {...dragHandleProps}>
+        <span className="text-xs opacity-0 group-hover:opacity-40 cursor-grab shrink-0 select-none" style={{ color: "var(--text-muted)" }}>⠿</span>
         <span className="text-xs font-bold w-12 shrink-0" style={{ color: METHOD_COLORS[req.method] ?? "#9ca3af" }}>{req.method}</span>
         <span className="flex-1 text-xs truncate" style={{ color: "var(--text-primary)" }}>{req.name}</span>
         {hasExamples && (
@@ -192,7 +194,7 @@ function RequestItem({ req, onLoad, onDelete, onRename, onConfirmDelete, onRefre
   );
 }
 
-function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, onRefresh, onConfirmDelete, onShare, onLoadExample, onMoveRequest, onNewRequest, onShareFolder }: {
+function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, onRefresh, onConfirmDelete, onShare, onLoadExample, onMoveRequest, onNewRequest, onShareFolder, dragHandleProps, onRequestsReordered }: {
   folder: Folder; collectionId: string; onLoadRequest: (r: SavedRequest) => void;
   onDelete: () => void; onRename: () => void; onRefresh: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void;
@@ -200,13 +202,38 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
   onLoadExample: (ex: SavedExample) => void;
   onMoveRequest: (r: SavedRequest) => void; onNewRequest: () => void;
   onShareFolder: () => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
+  onRequestsReordered: (folderId: string, ids: string[]) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [requests, setRequests] = useState(folder.requests);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const dragItem = useRef<string | null>(null);
+
+  useEffect(() => { setRequests(folder.requests); }, [folder.requests]);
+
+  const handleDragStart = (id: string) => { dragItem.current = id; };
+  const handleDrop = async (targetId: string) => {
+    if (!dragItem.current || dragItem.current === targetId) return;
+    const from = requests.findIndex(r => r.id === dragItem.current);
+    const to = requests.findIndex(r => r.id === targetId);
+    if (from === -1 || to === -1) return;
+    const reordered = [...requests];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    setRequests(reordered);
+    setDragOverId(null);
+    dragItem.current = null;
+    const ids = reordered.map(r => r.id);
+    onRequestsReordered(folder.id, ids);
+    await reorderItems('request', ids);
+  };
 
   return (
     <div>
-      <div className="flex items-center gap-1.5 px-2 py-1.5 rounded cursor-pointer group" onClick={() => setOpen(!open)}>
+      <div className="flex items-center gap-1.5 px-2 py-1.5 rounded cursor-pointer group" onClick={() => setOpen(!open)} {...dragHandleProps}>
+        <span className="text-xs opacity-0 group-hover:opacity-40 cursor-grab shrink-0 select-none" style={{ color: "var(--text-muted)" }}>⠿</span>
         <span className="text-xs">{open ? "📂" : "📁"}</span>
         <span className="flex-1 text-xs font-medium truncate" style={{ color: "var(--text-secondary)" }}>{folder.name}</span>
         <DotsMenu items={[
@@ -218,21 +245,33 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
       </div>
       {open && (
         <div className="ml-3 border-l pl-2" style={{ borderColor: "var(--border)" }}>
-          {folder.requests.length === 0
+          {requests.length === 0
             ? <p className="text-xs px-2 py-1 italic" style={{ color: "var(--text-muted)" }}>No requests</p>
-            : folder.requests.map((r) => (
+            : requests.map((r) => (
               renamingId === r.id
                 ? <InlineInput key={r.id} defaultValue={r.name} placeholder="Request name"
                     onCancel={() => setRenamingId(null)}
                     onConfirm={async (name) => { await renameSavedRequest(r.id, name); setRenamingId(null); onRefresh(); }} />
-                : <RequestItem key={r.id} req={r} onLoad={() => onLoadRequest(r)}
-                    onRename={() => setRenamingId(r.id)}
-                    onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
-                    onLoadExample={onLoadExample}
-                    onDuplicate={async () => { await duplicateRequest(r); onRefresh(); }}
-                    onMove={() => onMoveRequest(r)}
-                    onDelete={() => onConfirmDelete(`Delete "${r.name}"?`, async () => { await deleteSavedRequest(r.id); onRefresh(); },
-                      r.examples?.length > 0 ? `This action cannot be undone. All ${r.examples.length} saved response${r.examples.length > 1 ? "s" : ""} will also be permanently deleted.` : undefined)} />
+                : <div key={r.id}
+                    draggable
+                    onDragStart={() => handleDragStart(r.id)}
+                    onDragOver={(e) => { e.preventDefault(); setDragOverId(r.id); }}
+                    onDragLeave={() => setDragOverId(null)}
+                    onDrop={() => handleDrop(r.id)}
+                    style={{
+                      opacity: dragItem.current === r.id ? 0.4 : 1,
+                      borderTop: dragOverId === r.id ? "2px solid var(--accent)" : "2px solid transparent",
+                      transition: "border-color 0.1s",
+                    }}>
+                    <RequestItem req={r} onLoad={() => onLoadRequest(r)}
+                      onRename={() => setRenamingId(r.id)}
+                      onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
+                      onLoadExample={onLoadExample}
+                      onDuplicate={async () => { await duplicateRequest(r); onRefresh(); }}
+                      onMove={() => onMoveRequest(r)}
+                      onDelete={() => onConfirmDelete(`Delete "${r.name}"?`, async () => { await deleteSavedRequest(r.id); onRefresh(); },
+                        r.examples?.length > 0 ? `This action cannot be undone. All ${r.examples.length} saved response${r.examples.length > 1 ? "s" : ""} will also be permanently deleted.` : undefined)} />
+                  </div>
             ))}
         </div>
       )}
@@ -240,7 +279,7 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
   );
 }
 
-function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRename, onShare, onLoadExample, onMoveRequest, onNewRequest, onShareCollection, onShareFolder }: {
+function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRename, onShare, onLoadExample, onMoveRequest, onNewRequest, onShareCollection, onShareFolder, dragHandleProps }: {
   col: Collection; onLoadRequest: (r: SavedRequest) => void; onRefresh: () => void;
   onConfirmDelete: (label: string, action: () => Promise<void>, message?: string) => void;
   onRename: () => void; onShare: (url: string, reqData: { method: string; url: string; headers: Record<string, string>; body: string | null }) => void;
@@ -248,17 +287,58 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
   onMoveRequest: (r: SavedRequest) => void; onNewRequest: (collectionId: string, folderId: string | null) => void;
   onShareCollection: () => void;
   onShareFolder: (folder: Folder) => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }) {
   const [open, setOpen] = useState(true);
   const [addingFolder, setAddingFolder] = useState(false);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renamingRequestId, setRenamingRequestId] = useState<string | null>(null);
 
+  // Local state for optimistic reordering
+  const [folders, setFolders] = useState(col.folders);
+  const [rootRequests, setRootRequests] = useState(col.requests);
+  useEffect(() => { setFolders(col.folders); }, [col.folders]);
+  useEffect(() => { setRootRequests(col.requests); }, [col.requests]);
+
+  const folderDragItem = useRef<string | null>(null);
+  const [folderDragOver, setFolderDragOver] = useState<string | null>(null);
+  const reqDragItem = useRef<string | null>(null);
+  const [reqDragOver, setReqDragOver] = useState<string | null>(null);
+
+  const handleFolderDrop = async (targetId: string) => {
+    if (!folderDragItem.current || folderDragItem.current === targetId) return;
+    const from = folders.findIndex(f => f.id === folderDragItem.current);
+    const to = folders.findIndex(f => f.id === targetId);
+    if (from === -1 || to === -1) return;
+    const reordered = [...folders];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    setFolders(reordered);
+    setFolderDragOver(null);
+    folderDragItem.current = null;
+    await reorderItems('folder', reordered.map(f => f.id));
+  };
+
+  const handleRootReqDrop = async (targetId: string) => {
+    if (!reqDragItem.current || reqDragItem.current === targetId) return;
+    const from = rootRequests.findIndex(r => r.id === reqDragItem.current);
+    const to = rootRequests.findIndex(r => r.id === targetId);
+    if (from === -1 || to === -1) return;
+    const reordered = [...rootRequests];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    setRootRequests(reordered);
+    setReqDragOver(null);
+    reqDragItem.current = null;
+    await reorderItems('request', reordered.map(r => r.id));
+  };
+
   return (
     <div className="rounded-lg overflow-visible" style={{ border: "1px solid var(--border)" }}>
       <div className="flex items-center gap-2 px-3 py-2 cursor-pointer group"
         style={{ background: "color-mix(in srgb, var(--accent) 6%, var(--bg-card))" }}
-        onClick={() => setOpen(!open)}>
+        onClick={() => setOpen(!open)} {...dragHandleProps}>
+        <span className="text-xs opacity-0 group-hover:opacity-40 cursor-grab shrink-0 select-none" style={{ color: "var(--text-muted)" }}>⠿</span>
         <span className="text-xs">{open ? "▾" : "▸"}</span>
         <span className="text-xs font-bold flex-1 truncate uppercase tracking-wide" style={{ color: "var(--accent)" }}>{col.name}</span>
         <DotsMenu items={[
@@ -274,35 +354,62 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
             <InlineInput placeholder="Folder name" onCancel={() => setAddingFolder(false)}
               onConfirm={async (name) => { await createFolder(col.id, name); setAddingFolder(false); onRefresh(); }} />
           )}
-          {col.requests.map((r) => (
+          {/* Root-level requests */}
+          {rootRequests.map((r) => (
             renamingRequestId === r.id
               ? <InlineInput key={r.id} defaultValue={r.name} placeholder="Request name"
                   onCancel={() => setRenamingRequestId(null)}
                   onConfirm={async (name) => { await renameSavedRequest(r.id, name); setRenamingRequestId(null); onRefresh(); }} />
-              : <RequestItem key={r.id} req={r} onLoad={() => onLoadRequest(r)}
-                  onRename={() => setRenamingRequestId(r.id)}
-                  onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
-                  onLoadExample={onLoadExample}
-                  onDuplicate={async () => { await duplicateRequest(r); onRefresh(); }}
-                  onMove={() => onMoveRequest(r)}
-                  onDelete={() => onConfirmDelete(`Delete "${r.name}"?`, async () => { await deleteSavedRequest(r.id); onRefresh(); },
-                    r.examples?.length > 0 ? `This action cannot be undone. All ${r.examples.length} saved response${r.examples.length > 1 ? "s" : ""} will also be permanently deleted.` : undefined)} />
+              : <div key={r.id}
+                  draggable
+                  onDragStart={() => { reqDragItem.current = r.id; }}
+                  onDragOver={(e) => { e.preventDefault(); setReqDragOver(r.id); }}
+                  onDragLeave={() => setReqDragOver(null)}
+                  onDrop={() => handleRootReqDrop(r.id)}
+                  style={{
+                    opacity: reqDragItem.current === r.id ? 0.4 : 1,
+                    borderTop: reqDragOver === r.id ? "2px solid var(--accent)" : "2px solid transparent",
+                    transition: "border-color 0.1s",
+                  }}>
+                  <RequestItem req={r} onLoad={() => onLoadRequest(r)}
+                    onRename={() => setRenamingRequestId(r.id)}
+                    onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
+                    onLoadExample={onLoadExample}
+                    onDuplicate={async () => { await duplicateRequest(r); onRefresh(); }}
+                    onMove={() => onMoveRequest(r)}
+                    onDelete={() => onConfirmDelete(`Delete "${r.name}"?`, async () => { await deleteSavedRequest(r.id); onRefresh(); },
+                      r.examples?.length > 0 ? `This action cannot be undone. All ${r.examples.length} saved response${r.examples.length > 1 ? "s" : ""} will also be permanently deleted.` : undefined)} />
+                </div>
           ))}
-          {col.folders.map((f) => (
+          {/* Folders */}
+          {folders.map((f) => (
             renamingFolderId === f.id
               ? <InlineInput key={f.id} defaultValue={f.name} placeholder="Folder name"
                   onCancel={() => setRenamingFolderId(null)}
                   onConfirm={async (name) => { await renameFolder(col.id, f.id, name); setRenamingFolderId(null); onRefresh(); }} />
-              : <FolderItem key={f.id} folder={f} collectionId={col.id} onLoadRequest={onLoadRequest}
-                  onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
-                  onLoadExample={onLoadExample}
-                  onMoveRequest={onMoveRequest}
-                  onNewRequest={() => onNewRequest(col.id, f.id)}
-                  onShareFolder={() => onShareFolder(f)}
-                  onRename={() => setRenamingFolderId(f.id)}
-                  onDelete={() => onConfirmDelete(`Delete folder "${f.name}"?`, async () => { await deleteFolder(col.id, f.id); onRefresh(); })} />
+              : <div key={f.id}
+                  draggable
+                  onDragStart={() => { folderDragItem.current = f.id; }}
+                  onDragOver={(e) => { e.preventDefault(); setFolderDragOver(f.id); }}
+                  onDragLeave={() => setFolderDragOver(null)}
+                  onDrop={() => handleFolderDrop(f.id)}
+                  style={{
+                    opacity: folderDragItem.current === f.id ? 0.4 : 1,
+                    borderTop: folderDragOver === f.id ? "2px solid var(--accent)" : "2px solid transparent",
+                    transition: "border-color 0.1s",
+                  }}>
+                  <FolderItem folder={f} collectionId={col.id} onLoadRequest={onLoadRequest}
+                    onRefresh={onRefresh} onConfirmDelete={onConfirmDelete} onShare={onShare}
+                    onLoadExample={onLoadExample}
+                    onMoveRequest={onMoveRequest}
+                    onNewRequest={() => onNewRequest(col.id, f.id)}
+                    onShareFolder={() => onShareFolder(f)}
+                    onRename={() => setRenamingFolderId(f.id)}
+                    onRequestsReordered={() => {}}
+                    onDelete={() => onConfirmDelete(`Delete folder "${f.name}"?`, async () => { await deleteFolder(col.id, f.id); onRefresh(); })} />
+                </div>
           ))}
-          {col.requests.length === 0 && col.folders.length === 0 && !addingFolder && (
+          {rootRequests.length === 0 && folders.length === 0 && !addingFolder && (
             <p className="text-xs px-2 py-1 italic" style={{ color: "var(--text-muted)" }}>Empty collection</p>
           )}
         </div>
@@ -327,6 +434,26 @@ export default function CollectionsSidebar({
   const [openingLink, setOpeningLink] = useState(false);
   const [pastedLink, setPastedLink] = useState("");
   const [shareFolderCol, setShareFolderCol] = useState<{ type: 'folder' | 'collection'; id: string; name: string } | null>(null);
+
+  // Collection-level drag state
+  const [localCollections, setLocalCollections] = useState(collections);
+  const colDragItem = useRef<string | null>(null);
+  const [colDragOver, setColDragOver] = useState<string | null>(null);
+  useEffect(() => { setLocalCollections(collections); }, [collections]);
+
+  const handleColDrop = async (targetId: string) => {
+    if (!colDragItem.current || colDragItem.current === targetId) return;
+    const from = localCollections.findIndex(c => c.id === colDragItem.current);
+    const to = localCollections.findIndex(c => c.id === targetId);
+    if (from === -1 || to === -1) return;
+    const reordered = [...localCollections];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    setLocalCollections(reordered);
+    setColDragOver(null);
+    colDragItem.current = null;
+    await reorderItems('collection', reordered.map(c => c.id));
+  };
 
   const toggleDiff = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -408,20 +535,32 @@ export default function CollectionsSidebar({
                 No collections yet.<br />Click + New to create one.
               </p>
             )}
-            {collections.map((col) => (
+            {localCollections.map((col) => (
               renamingCollectionId === col.id
                 ? <InlineInput key={col.id} defaultValue={col.name} placeholder="Collection name"
                     onCancel={() => setRenamingCollectionId(null)}
                     onConfirm={async (name) => { await renameCollection(col.id, name); setRenamingCollectionId(null); onRefresh(); }} />
-                : <CollectionItem key={col.id} col={col} onLoadRequest={onLoadRequest} onRefresh={onRefresh}
-                    onRename={() => setRenamingCollectionId(col.id)}
-                    onShare={(url, reqData) => { setShareUrl(url); setShareReq(reqData); }}
-                    onLoadExample={onLoadExample}
-                    onMoveRequest={setMoveTarget}
-                    onNewRequest={onNewRequest}
-                    onShareCollection={() => setShareFolderCol({ type: 'collection', id: col.id, name: col.name })}
-                    onShareFolder={(f) => setShareFolderCol({ type: 'folder', id: f.id, name: f.name })}
-                    onConfirmDelete={(label, action, message) => setConfirmDelete({ label, action, message })} />
+                : <div key={col.id}
+                    draggable
+                    onDragStart={() => { colDragItem.current = col.id; }}
+                    onDragOver={(e) => { e.preventDefault(); setColDragOver(col.id); }}
+                    onDragLeave={() => setColDragOver(null)}
+                    onDrop={() => handleColDrop(col.id)}
+                    style={{
+                      opacity: colDragItem.current === col.id ? 0.4 : 1,
+                      borderTop: colDragOver === col.id ? "2px solid var(--accent)" : "2px solid transparent",
+                      transition: "border-color 0.1s",
+                    }}>
+                    <CollectionItem col={col} onLoadRequest={onLoadRequest} onRefresh={onRefresh}
+                      onRename={() => setRenamingCollectionId(col.id)}
+                      onShare={(url, reqData) => { setShareUrl(url); setShareReq(reqData); }}
+                      onLoadExample={onLoadExample}
+                      onMoveRequest={setMoveTarget}
+                      onNewRequest={onNewRequest}
+                      onShareCollection={() => setShareFolderCol({ type: 'collection', id: col.id, name: col.name })}
+                      onShareFolder={(f) => setShareFolderCol({ type: 'folder', id: f.id, name: f.name })}
+                      onConfirmDelete={(label, action, message) => setConfirmDelete({ label, action, message })} />
+                  </div>
             ))}
           </div>
         </>

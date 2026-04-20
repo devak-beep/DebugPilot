@@ -203,3 +203,7 @@ export async function renameCollection(id: string, name: string) {
 export async function renameFolder(collectionId: string, folderId: string, name: string) {
   await fetch(`/api/collections/${collectionId}/folders/${folderId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
 }
+
+export async function reorderItems(type: 'collection' | 'folder' | 'request', ids: string[]) {
+  await fetch('/api/reorder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, ids }) });
+}

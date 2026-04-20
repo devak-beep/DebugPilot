@@ -8,9 +8,9 @@ export async function GET() {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const uid = session.user.id
 
-  const cols = await db.execute({ sql: 'SELECT * FROM Collection WHERE userId = ? ORDER BY createdAt ASC', args: [uid] })
-  const folders = await db.execute({ sql: 'SELECT * FROM Folder WHERE userId = ? ORDER BY createdAt ASC', args: [uid] })
-  const requests = await db.execute({ sql: 'SELECT * FROM SavedRequest WHERE userId = ? ORDER BY createdAt ASC', args: [uid] })
+  const cols = await db.execute({ sql: 'SELECT * FROM Collection WHERE userId = ? ORDER BY sortOrder ASC, createdAt ASC', args: [uid] })
+  const folders = await db.execute({ sql: 'SELECT * FROM Folder WHERE userId = ? ORDER BY sortOrder ASC, createdAt ASC', args: [uid] })
+  const requests = await db.execute({ sql: 'SELECT * FROM SavedRequest WHERE userId = ? ORDER BY sortOrder ASC, createdAt ASC', args: [uid] })
   const examples = await db.execute({ sql: 'SELECT * FROM SavedExample ORDER BY createdAt ASC', args: [] })
 
   const exByReq: Record<string, any[]> = {}

@@ -1,6 +1,15 @@
 import db from './db'
 
 export async function ensureTables() {
+  // Add sortOrder columns if they don't exist (safe to run multiple times)
+  for (const sql of [
+    'ALTER TABLE Collection ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE Folder ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE SavedRequest ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0',
+  ]) {
+    try { await db.execute({ sql, args: [] }) } catch {}
+  }
+
   await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS ShareLink (
       id TEXT PRIMARY KEY,
