@@ -18,8 +18,11 @@ import MoveRequestModal from "./MoveRequestModal";
 const dragState = {
   reqId: null as string | null,
   collectionId: null as string | null,
-  folderId: null as string | null, // null = root level
+  folderId: null as string | null,
 };
+
+// Registry of callbacks to clear all drop indicators across all instances
+const clearIndicatorCallbacks = new Set<() => void>();
 import ShareFolderCollectionModal from "./ShareFolderCollectionModal";
 
 interface Props {
@@ -221,14 +224,21 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
 
   useEffect(() => { setRequests(folder.requests); }, [folder.requests]);
 
+  // Register this instance so any dragEnd/drop can clear our indicators
+  useEffect(() => {
+    const clear = () => { setDragOverId(null); setFolderDropOver(false); };
+    clearIndicatorCallbacks.add(clear);
+    return () => { clearIndicatorCallbacks.delete(clear); };
+  }, []);
+
   // Drop onto a request inside this folder
   const handleReqDrop = async (targetId: string) => {
-    const { reqId, folderId: srcFolderId, collectionId: srcColId } = dragState;
-    if (!reqId || reqId === targetId) { setDragOverId(null); return; }
+    const { reqId, folderId: srcFolderId } = dragState;
+    clearIndicatorCallbacks.forEach(fn => fn());
+    if (!reqId || reqId === targetId) return;
 
     const isSameFolder = srcFolderId === folder.id;
     if (isSameFolder) {
-      // Reorder within same folder
       const from = requests.findIndex(r => r.id === reqId);
       const to = requests.findIndex(r => r.id === targetId);
       if (from === -1 || to === -1) return;
@@ -236,12 +246,9 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
       const [moved] = reordered.splice(from, 1);
       reordered.splice(to, 0, moved);
       setRequests(reordered);
-      setDragOverId(null);
-      await reorderItems('request', reordered.map(r => r.id));
+      reorderItems('request', reordered.map(r => r.id));
     } else {
-      // Cross-folder: move the dragged request into this folder
-      await moveRequest(reqId, collectionId, folder.id);
-      onRefresh();
+      moveRequest(reqId, collectionId, folder.id).then(() => onRefresh());
     }
     dragState.reqId = null;
   };
@@ -252,9 +259,8 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
     setFolderDropOver(false);
     const { reqId, folderId: srcFolderId } = dragState;
     if (!reqId || srcFolderId === folder.id) return;
-    await moveRequest(reqId, collectionId, folder.id);
+    moveRequest(reqId, collectionId, folder.id).then(() => onRefresh());
     dragState.reqId = null;
-    onRefresh();
   };
 
   return (
@@ -289,7 +295,7 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
                 : <div key={r.id}
                     draggable
                     onDragStart={() => { setDraggingId(r.id); dragState.reqId = r.id; dragState.folderId = folder.id; dragState.collectionId = collectionId; }}
-                    onDragEnd={() => { setDraggingId(null); setDragOverId(null); dragState.reqId = null; }}
+                    onDragEnd={() => { setDraggingId(null); dragState.reqId = null; clearIndicatorCallbacks.forEach(fn => fn()); }}
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverId(r.id); }}
                     onDragLeave={() => setDragOverId(null)}
                     onDrop={(e) => { e.stopPropagation(); handleReqDrop(r.id); }}
@@ -342,7 +348,15 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
   const [reqDragOver, setReqDragOver] = useState<string | null>(null);
   const [reqDraggingId, setReqDraggingId] = useState<string | null>(null);
 
+  // Register clear callback so any drag end clears our indicators too
+  useEffect(() => {
+    const clear = () => { setFolderDragOver(null); setReqDragOver(null); };
+    clearIndicatorCallbacks.add(clear);
+    return () => { clearIndicatorCallbacks.delete(clear); };
+  }, []);
+
   const handleFolderDrop = async (targetId: string) => {
+    clearIndicatorCallbacks.forEach(fn => fn());
     if (!folderDragItem.current || folderDragItem.current === targetId) return;
     const from = folders.findIndex(f => f.id === folderDragItem.current);
     const to = folders.findIndex(f => f.id === targetId);
@@ -351,13 +365,13 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
     const [moved] = reordered.splice(from, 1);
     reordered.splice(to, 0, moved);
     setFolders(reordered);
-    setFolderDragOver(null);
     setFolderDraggingId(null);
     folderDragItem.current = null;
-    await reorderItems('folder', reordered.map(f => f.id));
+    reorderItems('folder', reordered.map(f => f.id));
   };
 
   const handleRootReqDrop = async (targetId: string) => {
+    clearIndicatorCallbacks.forEach(fn => fn());
     if (!reqDragItem.current || reqDragItem.current === targetId) return;
     const from = rootRequests.findIndex(r => r.id === reqDragItem.current);
     const to = rootRequests.findIndex(r => r.id === targetId);
@@ -366,10 +380,9 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
     const [moved] = reordered.splice(from, 1);
     reordered.splice(to, 0, moved);
     setRootRequests(reordered);
-    setReqDragOver(null);
     setReqDraggingId(null);
     reqDragItem.current = null;
-    await reorderItems('request', reordered.map(r => r.id));
+    reorderItems('request', reordered.map(r => r.id));
   };
 
   return (
@@ -402,7 +415,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
               : <div key={r.id}
                   draggable
                   onDragStart={() => { reqDragItem.current = r.id; setReqDraggingId(r.id); dragState.reqId = r.id; dragState.folderId = null; dragState.collectionId = col.id; }}
-                  onDragEnd={() => { setReqDraggingId(null); setReqDragOver(null); dragState.reqId = null; }}
+                  onDragEnd={() => { setReqDraggingId(null); dragState.reqId = null; clearIndicatorCallbacks.forEach(fn => fn()); }}
                   onDragOver={(e) => { e.preventDefault(); setReqDragOver(r.id); }}
                   onDragLeave={() => setReqDragOver(null)}
                   onDrop={() => handleRootReqDrop(r.id)}
@@ -430,7 +443,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
               : <div key={f.id}
                   draggable
                   onDragStart={() => { folderDragItem.current = f.id; setFolderDraggingId(f.id); }}
-                  onDragEnd={() => { setFolderDraggingId(null); setFolderDragOver(null); folderDragItem.current = null; }}
+                  onDragEnd={() => { setFolderDraggingId(null); folderDragItem.current = null; clearIndicatorCallbacks.forEach(fn => fn()); }}
                   onDragOver={(e) => { e.preventDefault(); setFolderDragOver(f.id); }}
                   onDragLeave={() => setFolderDragOver(null)}
                   onDrop={() => handleFolderDrop(f.id)}
@@ -483,7 +496,15 @@ export default function CollectionsSidebar({
   const [colDraggingId, setColDraggingId] = useState<string | null>(null);
   useEffect(() => { setLocalCollections(collections); }, [collections]);
 
+  // Register collection-level clear
+  useEffect(() => {
+    const clear = () => setColDragOver(null);
+    clearIndicatorCallbacks.add(clear);
+    return () => { clearIndicatorCallbacks.delete(clear); };
+  }, []);
+
   const handleColDrop = async (targetId: string) => {
+    clearIndicatorCallbacks.forEach(fn => fn());
     if (!colDragItem.current || colDragItem.current === targetId) return;
     const from = localCollections.findIndex(c => c.id === colDragItem.current);
     const to = localCollections.findIndex(c => c.id === targetId);
@@ -495,7 +516,7 @@ export default function CollectionsSidebar({
     setColDragOver(null);
     setColDraggingId(null);
     colDragItem.current = null;
-    await reorderItems('collection', reordered.map(c => c.id));
+    reorderItems('collection', reordered.map(c => c.id));
   };
 
   const toggleDiff = (e: React.MouseEvent, id: string) => {
@@ -586,7 +607,7 @@ export default function CollectionsSidebar({
                 : <div key={col.id}
                     draggable
                     onDragStart={() => { colDragItem.current = col.id; setColDraggingId(col.id); }}
-                    onDragEnd={() => { setColDraggingId(null); setColDragOver(null); colDragItem.current = null; }}
+                    onDragEnd={() => { setColDraggingId(null); colDragItem.current = null; clearIndicatorCallbacks.forEach(fn => fn()); }}
                     onDragOver={(e) => { e.preventDefault(); setColDragOver(col.id); }}
                     onDragLeave={() => setColDragOver(null)}
                     onDrop={() => handleColDrop(col.id)}
