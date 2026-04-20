@@ -227,7 +227,11 @@ function parseCurl(raw: string): Partial<{ method: string; url: string; headers:
     let cur = "", inQ: string | null = null;
     for (let i = 0; i < s.length; i++) {
       const c = s[i];
-      if (inQ) { if (c === inQ) inQ = null; else cur += c; }
+      if (inQ) {
+        if (c === '\\' && inQ === '"' && s[i + 1] === '"') { cur += '"'; i++; }
+        else if (c === inQ) inQ = null;
+        else cur += c;
+      }
       else if (c === '"' || c === "'") inQ = c;
       else if (c === " ") { if (cur) { tokens.push(cur); cur = ""; } }
       else cur += c;
