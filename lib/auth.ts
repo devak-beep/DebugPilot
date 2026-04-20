@@ -18,7 +18,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const res = await db.execute({ sql: 'SELECT * FROM User WHERE email = ?', args: [email] })
         const user = res.rows[0]
         if (!user) return null
-        const valid = await bcrypt.compare(credentials.password as string, user.password as string)
+        const incoming = credentials.password as string
+        const stored = user.password as string
+        // New clients send sha256(password); stored is bcrypt(sha256(password))
+        const valid = await bcrypt.compare(incoming, stored)
         if (!valid) return null
         return { id: user.id as string, name: user.name as string, email: user.email as string }
       },

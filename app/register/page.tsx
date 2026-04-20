@@ -8,6 +8,7 @@ import OtpTimer from "../components/OtpTimer";
 import MatrixRain from "../components/MatrixRain";
 import PasswordInput from "../components/PasswordInput";
 import { validatePassword } from "@/lib/password";
+import { hashPassword } from "@/lib/hash";
 
 type Step = "form" | "otp";
 
@@ -81,7 +82,7 @@ export default function RegisterPage() {
     if (!verifyRes.ok) { setLoading(false); setError(verifyData.error); return; }
     const regRes = await fetch("/api/register", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password: await hashPassword(password) }),
     });
     const regData = await regRes.json();
     setLoading(false);

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import PasswordInput from './PasswordInput'
 import { validatePassword } from '@/lib/password'
+import { hashPassword } from '@/lib/hash'
 
 type Section = 'name' | 'email' | 'password'
 
@@ -62,7 +63,7 @@ export default function ProfileModal({ onClose }: { onClose: () => void }) {
     if (err) { setError(err); return }
     if (newPw !== confirmPw) { setError('Passwords do not match'); return }
     setLoading(true)
-    const res = await fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'password', oldPassword: oldPw, newPassword: newPw }) })
+    const res = await fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'password', oldPassword: await hashPassword(oldPw), newPassword: await hashPassword(newPw) }) })
     const d = await res.json(); setLoading(false)
     if (!res.ok) { setError(d.error); return }
     setSuccess('Password updated successfully.'); setOldPw(''); setNewPw(''); setConfirmPw('')

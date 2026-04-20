@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import { hashPassword } from "@/lib/hash";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Logo } from "../components/BrandLogo";
@@ -21,7 +22,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const res = await signIn("credentials", { email, password, redirect: false });
+    const res = await signIn("credentials", { email, password: await hashPassword(password), redirect: false });
     setLoading(false);
     if (res?.error) setError("Invalid email or password");
     else if (nextUrl.startsWith('/api/')) window.location.href = nextUrl

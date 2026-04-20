@@ -7,6 +7,7 @@ import { Logo } from "../components/BrandLogo";
 import OtpTimer from "../components/OtpTimer";
 import PasswordInput from "../components/PasswordInput";
 import { validatePassword } from "@/lib/password";
+import { hashPassword } from "@/lib/hash";
 
 type Step = "email" | "otp" | "password";
 
@@ -76,7 +77,7 @@ export default function ForgotPasswordPage() {
     if (pwErr) { setError(pwErr); return; }
     if (password !== confirmPassword) { setError("Passwords do not match"); return; }
     setLoading(true);
-    const { res, data } = await post("/api/reset-password", { email, password, resetToken: resetTokenRef.current });
+    const { res, data } = await post("/api/reset-password", { email, password: await hashPassword(password), resetToken: resetTokenRef.current });
     setLoading(false);
     if (!res.ok) { setError(data.error); return; }
     router.push("/login");
