@@ -286,7 +286,19 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
       {open && (
         <div className="ml-3 border-l pl-2" style={{ borderColor: "var(--border)" }}>
           {requests.length === 0
-            ? <p className="text-xs px-2 py-1 italic" style={{ color: "var(--text-muted)" }}>No requests</p>
+            ? <div
+                onDragOver={(e) => { if (dragState.reqId) { e.preventDefault(); setFolderDropOver(true); } }}
+                onDragLeave={() => setFolderDropOver(false)}
+                onDrop={(e) => { e.stopPropagation(); handleFolderHeaderDrop(e); }}
+                className="text-xs px-2 py-3 italic rounded"
+                style={{ 
+                  color: "var(--text-muted)", 
+                  background: folderDropOver ? "color-mix(in srgb, var(--accent) 8%, transparent)" : undefined,
+                  border: folderDropOver ? "1px dashed var(--accent)" : "1px dashed transparent",
+                  transition: "all 0.1s"
+                }}>
+                {folderDropOver ? "Drop here" : "No requests"}
+              </div>
             : requests.map((r) => (
               renamingId === r.id
                 ? <InlineInput key={r.id} defaultValue={r.name} placeholder="Request name"
