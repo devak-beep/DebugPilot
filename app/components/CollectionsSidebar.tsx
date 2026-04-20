@@ -585,18 +585,20 @@ export default function CollectionsSidebar({
                 <input autoFocus value={pastedLink} onChange={e => setPastedLink(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === "Enter" && pastedLink.trim()) {
-                      const match = pastedLink.match(/\/share\/([a-f0-9]+)/);
-                      if (match) { window.open(`/share/${match[1]}`, "_blank"); setOpeningLink(false); setPastedLink(""); }
+                      const match = pastedLink.match(/\/share-v2\/([a-f0-9]+)/) || pastedLink.match(/\/share\/([a-f0-9]+)/);
+                      const path = pastedLink.match(/\/share-v2\//) ? `/share-v2/${match?.[1]}` : `/share/${match?.[1]}`;
+                      if (match) { window.open(path, "_blank"); setOpeningLink(false); setPastedLink(""); }
                     }
                     if (e.key === "Escape") { setOpeningLink(false); setPastedLink(""); }
                   }}
-                  placeholder="https://…/share/abc123"
+                  placeholder="https://…/share-v2/abc123"
                   className="flex-1 px-2 py-1 rounded text-xs font-mono focus:outline-none"
                   style={{ background: "var(--bg-input)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                 <button
                   onClick={() => {
-                    const match = pastedLink.match(/\/share\/([a-f0-9]+)/);
-                    if (match) { window.open(`/share/${match[1]}`, "_blank"); setOpeningLink(false); setPastedLink(""); }
+                    const match = pastedLink.match(/\/share-v2\/([a-f0-9]+)/) || pastedLink.match(/\/share\/([a-f0-9]+)/);
+                    const path = pastedLink.match(/\/share-v2\//) ? `/share-v2/${match?.[1]}` : `/share/${match?.[1]}`;
+                    if (match) { window.open(path, "_blank"); setOpeningLink(false); setPastedLink(""); }
                   }}
                   disabled={!pastedLink.trim()}
                   className="px-2 py-1 rounded text-xs font-bold"
