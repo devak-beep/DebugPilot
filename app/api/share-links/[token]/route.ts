@@ -19,11 +19,17 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ token:
     if (!session?.user?.id) return NextResponse.json({ error: 'login_required' }, { status: 401 })
     if (session.user.id !== link.ownerId) {
       // 1. Check CollectionMember (email-invite path)
+      // For folder links, look up the folder's collectionId first
+      let collectionIdForMemberCheck = link.targetId as string
+      if (link.type === 'folder') {
+        const folderRow = await db.execute({ sql: 'SELECT collectionId FROM Folder WHERE id = ?', args: [link.targetId as string] })
+        if (folderRow.rows.length) collectionIdForMemberCheck = folderRow.rows[0].collectionId as string
+      }
       const memberAccess = await db.execute({
         sql: `SELECT role FROM CollectionMember
               WHERE collectionId = ? AND memberId = ? AND status = 'accepted'
               LIMIT 1`,
-        args: [link.targetId as string, session.user.id]
+        args: [collectionIdForMemberCheck, session.user.id]
       })
       // 2. Fallback: approved ShareAccessRequest for this (owner, type, target)
       const requestAccess = memberAccess.rows.length ? null : await db.execute({
@@ -50,7 +56,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ token:
   }
 
   const role = session?.user?.id === link.ownerId ? 'owner'
-    : (await db.execute({ sql: `SELECT role FROM CollectionMember WHERE collectionId = ? AND memberId = ? AND status = 'accepted' LIMIT 1`, args: [link.targetId as string, session?.user?.id ?? ''] })).rows[0]?.role ?? 'viewer'
+    : (await db.execute({ sql: `SELECT role FROM CollectionMember WHERE collectionId = ? AND memberId = ? AND status = 'accepted' LIMIT 1`, args: [link.type === 'folder' ? ((await db.execute({ sql: 'SELECT collectionId FROM Folder WHERE id = ?', args: [link.targetId as string] })).rows[0]?.collectionId ?? link.targetId) : link.targetId as string, session?.user?.id ?? ''] })).rows[0]?.role ?? 'viewer'
 
   return NextResponse.json({ ...(await resolveLink(link)), role })
 }

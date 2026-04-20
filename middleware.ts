@@ -9,5 +9,5 @@ export default auth((req) => {
 })
 
 export const config = {
-  matcher: ["/((?!api/auth|api/register|api/otp|api/reset-password|api/share|api/invite|login|register|forgot-password|share|share-v2|_next|favicon.ico|.*\\.png|.*\\.svg|.*\\.ico|.*\\.jpg|.*\\.webp).*)"],
+  matcher: ["/((?!api/auth|api/register|api/otp|api/reset-password|api/share|api/share-links|api/invite|login|register|forgot-password|share|share-v2|_next|favicon.ico|.*\\.png|.*\\.svg|.*\\.ico|.*\\.jpg|.*\\.webp).*)"],
 }
