@@ -456,7 +456,23 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
             {["GET","POST","PUT","PATCH","DELETE","HEAD","OPTIONS"].map(m => <option key={m} style={{ color: METHOD_COLORS[m] ?? "#6b7280" }}>{m}</option>)}
           </select>
           <div className="flex-1">
-            <input type="text" value={url} onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
+            <input type="text" value={url} onChange={(e) => {
+              const v = e.target.value;
+              const trimmed = v.trim();
+              if (trimmed.startsWith("curl ")) {
+                const parsed = parseCurl(trimmed);
+                if (parsed?.url) {
+                  setUrl(parsed.url);
+                  if (parsed.method) setMethod(parsed.method);
+                  if (parsed.headers?.length) setHeaders([...parsed.headers, mkRow()]);
+                  if (parsed.digest) { setAuthType("digest"); setDigestUser(parsed.digest.username); setDigestPass(parsed.digest.password); setTab("auth"); }
+                  if (parsed.formData?.length) { setBodyType("form-data"); setFormDataRows([...parsed.formData, mkRow()]); }
+                  else if (parsed.body) { try { JSON.parse(parsed.body); setBodyType("json"); setBodyJson(parsed.body); } catch { setBodyType("text"); setBodyText(parsed.body); } }
+                  return;
+                }
+              }
+              setUrl(v); setUrlError(null);
+            }}
               placeholder="https://api.example.com/v1/users"
               className="w-full px-4 py-2 rounded-lg font-mono text-sm focus:outline-none focus:ring-2"
               style={{ background: urlError ? "#fef2f2" : "var(--bg-input)", border: `1px solid ${urlError ? "#f87171" : "var(--border)"}`, color: "var(--text-primary)" }} />
