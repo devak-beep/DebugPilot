@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { auth } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
-import { validatePassword } from '@/lib/password'
 
 export async function PATCH(req: NextRequest) {
   const session = await auth()
@@ -39,8 +38,6 @@ export async function PATCH(req: NextRequest) {
   if (action === 'password') {
     const { oldPassword, newPassword } = body
     if (!oldPassword || !newPassword) return NextResponse.json({ error: 'oldPassword and newPassword required' }, { status: 400 })
-    const err = validatePassword(newPassword)
-    if (err) return NextResponse.json({ error: err }, { status: 400 })
     const r = await db.execute({ sql: 'SELECT password FROM User WHERE id = ?', args: [uid] })
     if (!r.rows.length) return NextResponse.json({ error: 'User not found' }, { status: 404 })
     const valid = await bcrypt.compare(oldPassword, r.rows[0].password as string)
