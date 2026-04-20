@@ -106,6 +106,10 @@ function JsonTree({ data }: { data: unknown }) {
 // ─── Syntax Highlight (HTML / XML / JS) ──────────────────────────────────────
 
 function SyntaxHighlight({ code, lang }: { code: string; lang: string }) {
+  return <CodeWithLineNumbers html={highlightCode(code, lang)} />;
+}
+
+function highlightCode(code: string, lang: string): string {
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   if (lang === "json") {
@@ -120,7 +124,7 @@ function SyntaxHighlight({ code, lang }: { code: string; lang: string }) {
         return `<span style="color:var(--code-number)">${m}</span>`;
       }
     );
-    return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: h }} />;
+    return h;
   }
 
   if (lang === "html" || lang === "xml") {
@@ -150,7 +154,7 @@ function SyntaxHighlight({ code, lang }: { code: string; lang: string }) {
         result += esc(token);
       }
     }
-    return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: result }} />;
+    return result;
   }
 
   if (lang === "js") {
@@ -168,10 +172,14 @@ function SyntaxHighlight({ code, lang }: { code: string; lang: string }) {
       else if (special) result += esc(special);
       else result += other ?? "";
     }
-    return <code className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: result }} />;
+    return result;
   }
 
-  return <code className="text-sm leading-relaxed whitespace-pre-wrap">{code}</code>;
+  return esc(code);
+}
+
+function SyntaxHighlightWithLines({ code, lang }: { code: string; lang: string }) {
+  return <CodeWithLineNumbers html={highlightCode(code, lang)} />;
 }
 
 // ─── Hex View ─────────────────────────────────────────────────────────────────
@@ -230,9 +238,52 @@ function prettyXmlHtml(rawStr: string) {
   } catch { return rawStr; }
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Code Block with Line Numbers ────────────────────────────────────────────
 
-export default function ResponseViewer({ response, onSaveResponse }: { response: ResponseData; onSaveResponse?: () => void }) {
+function CodeWithLineNumbers({ children, html }: { children?: string; html?: string }) {
+  const lines = (html ?? children ?? "").split("\n");
+
+  const selectLine = (i: number) => {
+    const el = document.getElementById(`code-line-${i}`);
+    if (!el) return;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  };
+
+  return (
+    <div className="flex text-sm font-mono leading-relaxed overflow-auto" style={{ minWidth: 0 }}>
+      {/* Line numbers */}
+      <div className="select-none shrink-0 pr-3 text-right"
+        style={{ color: "var(--code-null)", borderRight: "1px solid var(--border)", minWidth: "2.5rem" }}>
+        {lines.map((_, i) => (
+          <div key={i} onClick={() => selectLine(i)}
+            className="cursor-pointer hover:opacity-80 px-1"
+            style={{ lineHeight: "1.6rem" }}>
+            {i + 1}
+          </div>
+        ))}
+      </div>
+      {/* Code */}
+      <div className="pl-3 flex-1 overflow-auto whitespace-pre-wrap" style={{ minWidth: 0 }}>
+        {lines.map((line, i) =>
+          html ? (
+            <div key={i} id={`code-line-${i}`} style={{ lineHeight: "1.6rem" }}
+              dangerouslySetInnerHTML={{ __html: line || " " }} />
+          ) : (
+            <div key={i} id={`code-line-${i}`} style={{ lineHeight: "1.6rem" }}>
+              {line || " "}
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function ResponseViewer({ response, onSaveResponse, url }: { response: ResponseData; onSaveResponse?: () => void; url?: string }) {
   const statusColor = getStatusColor(response.status);
   const isError = !!response.error;
 
@@ -270,6 +321,22 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
     navigator.clipboard.writeText(displayBody);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = () => {
+    const ext = format === "json" ? "json" : format === "html" ? "html" : format === "xml" ? "xml" : format === "javascript" ? "js" : "txt";
+    const mime = format === "json" ? "application/json" : format === "html" ? "text/html" : format === "xml" ? "application/xml" : "text/plain";
+    // Derive filename from URL path, e.g. https://api.example.com/users/list → users-list.json
+    const slug = url
+      ? new URL(url.startsWith("http") ? url : `http://x/${url}`).pathname.replace(/^\//, "").replace(/\//g, "-").replace(/[^a-zA-Z0-9-_]/g, "") || "response"
+      : "response";
+    const filename = `${slug}.${ext}`;
+    const blob = new Blob([displayBody], { type: mime });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
   };
 
   const FORMATS: BodyFormat[] = ["json", "html", "xml", "javascript", "text", "hex", "base64"];
@@ -349,6 +416,12 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
             }
             {copied ? "Copied" : "Copy"}
           </button>
+          <button onClick={handleDownload}
+            className="px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1.5"
+            style={{ background: "var(--bg-input)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v7M3 5l3 3 3-3M1 10h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            Download
+          </button>
         </div>
       </div>
 
@@ -371,14 +444,14 @@ export default function ResponseViewer({ response, onSaveResponse }: { response:
             <JsonTree data={parsedJson} />
           </div>
         ) : (
-          // All other formats → syntax highlighted code block
-          <div className={`rounded-lg p-4 overflow-auto font-mono ${isLarge ? "max-h-64" : "max-h-[500px]"}`}
+          // All other formats → syntax highlighted code block with line numbers
+          <div className={`rounded-lg p-4 overflow-auto ${isLarge ? "max-h-64" : "max-h-[500px]"}`}
             style={{ background: "var(--code-bg)", color: "var(--code-text)", border: "1px solid var(--border)" }}>
             {format === "hex"
               ? <HexView raw={rawStr} />
               : (format === "base64" || format === "text")
-                ? <code className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--code-text)" }}>{displayBody}</code>
-                : <SyntaxHighlight code={displayBody} lang={syntaxLang} />
+                ? <CodeWithLineNumbers>{displayBody}</CodeWithLineNumbers>
+                : <SyntaxHighlightWithLines code={displayBody} lang={syntaxLang} />
             }
           </div>
         )}
