@@ -55,6 +55,8 @@ export async function POST(req: NextRequest) {
   const { name } = await req.json()
   if (!name?.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 })
   const id = cuid()
-  await db.execute({ sql: 'INSERT INTO Collection (id, userId, name, isPublic, createdAt) VALUES (?, ?, ?, 0, ?)', args: [id, session.user.id, name.trim(), new Date().toISOString()] })
+  const maxRes = await db.execute({ sql: 'SELECT MAX(sortOrder) as m FROM Collection WHERE userId = ?', args: [session.user.id] })
+  const sortOrder = ((maxRes.rows[0]?.m as number | null) ?? -1) + 1
+  await db.execute({ sql: 'INSERT INTO Collection (id, userId, name, isPublic, sortOrder, createdAt) VALUES (?, ?, ?, 0, ?, ?)', args: [id, session.user.id, name.trim(), sortOrder, new Date().toISOString()] })
   return NextResponse.json({ id, userId: session.user.id, name: name.trim(), folders: [], requests: [] })
 }
