@@ -19,6 +19,7 @@ const dragState = {
   reqId: null as string | null,
   collectionId: null as string | null,
   folderId: null as string | null,
+  type: null as 'request' | 'folder' | 'collection' | null,
 };
 
 // Registry of callbacks to clear all drop indicators across all instances
@@ -253,10 +254,11 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
     dragState.reqId = null;
   };
 
-  // Drop onto the folder header itself → move into this folder
+  // Drop onto the folder header itself → move request into this folder
   const handleFolderHeaderDrop = async (e: React.DragEvent) => {
-    e.stopPropagation();
     setFolderDropOver(false);
+    if (dragState.type !== 'request') return; // let folder drops bubble to parent
+    e.stopPropagation();
     const { reqId, folderId: srcFolderId } = dragState;
     if (!reqId || srcFolderId === folder.id) return;
     moveRequest(reqId, collectionId, folder.id).then(() => onRefresh());
@@ -269,7 +271,10 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
         className="flex items-center gap-1.5 px-2 py-1.5 rounded cursor-pointer group"
         style={{ background: folderDropOver ? "color-mix(in srgb, var(--accent) 12%, transparent)" : undefined, transition: "background 0.1s" }}
         onClick={() => setOpen(!open)}
-        onDragOver={(e) => { if (dragState.reqId) { e.preventDefault(); setFolderDropOver(true); } }}
+        onDragOver={(e) => {
+          if (dragState.type === 'request') { e.preventDefault(); setFolderDropOver(true); }
+          else if (dragState.type === 'folder') { e.preventDefault(); }
+        }}
         onDragLeave={() => setFolderDropOver(false)}
         onDrop={handleFolderHeaderDrop}
         {...dragHandleProps}>
@@ -306,11 +311,11 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
                     onConfirm={async (name) => { await renameSavedRequest(r.id, name); setRenamingId(null); onRefresh(); }} />
                 : <div key={r.id}
                     draggable
-                    onDragStart={() => { setDraggingId(r.id); dragState.reqId = r.id; dragState.folderId = folder.id; dragState.collectionId = collectionId; }}
-                    onDragEnd={() => { setDraggingId(null); dragState.reqId = null; clearIndicatorCallbacks.forEach(fn => fn()); }}
+                    onDragStart={() => { setDraggingId(r.id); dragState.reqId = r.id; dragState.folderId = folder.id; dragState.collectionId = collectionId; dragState.type = 'request'; }}
+                    onDragEnd={() => { setDraggingId(null); dragState.reqId = null; dragState.type = null; clearIndicatorCallbacks.forEach(fn => fn()); }}
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverId(r.id); }}
                     onDragLeave={() => setDragOverId(null)}
-                    onDrop={(e) => { e.stopPropagation(); handleReqDrop(r.id); }}
+                    onDrop={(e) => { if (dragState.type === 'request') { e.stopPropagation(); handleReqDrop(r.id); } }}
                     style={{
                       opacity: draggingId === r.id ? 0.4 : 1,
                       borderTop: dragOverId === r.id ? "2px solid var(--accent)" : "2px solid transparent",
@@ -426,8 +431,8 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
                   onConfirm={async (name) => { await renameSavedRequest(r.id, name); setRenamingRequestId(null); onRefresh(); }} />
               : <div key={r.id}
                   draggable
-                  onDragStart={() => { reqDragItem.current = r.id; setReqDraggingId(r.id); dragState.reqId = r.id; dragState.folderId = null; dragState.collectionId = col.id; }}
-                  onDragEnd={() => { setReqDraggingId(null); dragState.reqId = null; clearIndicatorCallbacks.forEach(fn => fn()); }}
+                  onDragStart={() => { reqDragItem.current = r.id; setReqDraggingId(r.id); dragState.reqId = r.id; dragState.folderId = null; dragState.collectionId = col.id; dragState.type = 'request'; }}
+                  onDragEnd={() => { setReqDraggingId(null); dragState.reqId = null; dragState.type = null; clearIndicatorCallbacks.forEach(fn => fn()); }}
                   onDragOver={(e) => { e.preventDefault(); setReqDragOver(r.id); }}
                   onDragLeave={() => setReqDragOver(null)}
                   onDrop={() => handleRootReqDrop(r.id)}
@@ -454,8 +459,8 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
                   onConfirm={async (name) => { await renameFolder(col.id, f.id, name); setRenamingFolderId(null); onRefresh(); }} />
               : <div key={f.id}
                   draggable
-                  onDragStart={() => { folderDragItem.current = f.id; setFolderDraggingId(f.id); }}
-                  onDragEnd={() => { setFolderDraggingId(null); folderDragItem.current = null; clearIndicatorCallbacks.forEach(fn => fn()); }}
+                  onDragStart={() => { folderDragItem.current = f.id; setFolderDraggingId(f.id); dragState.type = 'folder'; }}
+                  onDragEnd={() => { setFolderDraggingId(null); folderDragItem.current = null; dragState.type = null; clearIndicatorCallbacks.forEach(fn => fn()); }}
                   onDragOver={(e) => { e.preventDefault(); setFolderDragOver(f.id); }}
                   onDragLeave={() => setFolderDragOver(null)}
                   onDrop={() => handleFolderDrop(f.id)}
