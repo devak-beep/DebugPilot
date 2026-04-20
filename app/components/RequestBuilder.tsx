@@ -212,14 +212,14 @@ const AUTH_TYPES: { value: AuthType; label: string }[] = [
 
 function mkRow(key = "", value = ""): KVRow { return { key, value, description: "", enabled: true }; }
 
-function parseCurl(raw: string): Partial<{ method: string; url: string; headers: KVRow[]; body: string; formData: KVRow[] }> | null {
+function parseCurl(raw: string): Partial<{ method: string; url: string; headers: KVRow[]; body: string; formData: KVRow[]; digest: { username: string; password: string } }> | null {
   try {
     // normalize line continuations and collapse whitespace
     const s = raw.replace(/\\\n/g, " ").replace(/\s+/g, " ").trim();
     if (!s.startsWith("curl")) return null;
 
-    const result: { method: string; url: string; headers: KVRow[]; body: string; formData: KVRow[] } = {
-      method: "GET", url: "", headers: [], body: "", formData: [],
+    const result: { method: string; url: string; headers: KVRow[]; body: string; formData: KVRow[]; digest?: { username: string; password: string }; isDigest: boolean; userCreds: { username: string; password: string } | null } = {
+      method: "GET", url: "", headers: [], body: "", formData: [], isDigest: false, userCreds: null,
     };
 
     // tokenize respecting quotes
@@ -237,6 +237,7 @@ function parseCurl(raw: string): Partial<{ method: string; url: string; headers:
     for (let i = 1; i < tokens.length; i++) {
       const t = tokens[i];
       if (t === "-X" || t === "--request") { result.method = tokens[++i]; }
+      else if (t === "--digest") { result.isDigest = true; }
       else if (t === "-H" || t === "--header") {
         const h = tokens[++i]; const colon = h.indexOf(":");
         if (colon > 0) result.headers.push(mkRow(h.slice(0, colon).trim(), h.slice(colon + 1).trim()));
@@ -252,9 +253,18 @@ function parseCurl(raw: string): Partial<{ method: string; url: string; headers:
       }
       else if (t === "-u" || t === "--user") {
         const [u, p = ""] = tokens[++i].split(":");
-        result.headers.push(mkRow("Authorization", `Basic ${btoa(`${u}:${p}`)}`));
+        result.userCreds = { username: u, password: p };
       }
       else if (!t.startsWith("-") && !result.url) result.url = t;
+    }
+
+    // Resolve auth: --digest + -u → digest auth; -u alone → basic auth header
+    if (result.userCreds) {
+      if (result.isDigest) {
+        result.digest = result.userCreds;
+      } else {
+        result.headers.push(mkRow("Authorization", `Basic ${btoa(`${result.userCreds.username}:${result.userCreds.password}`)}`));
+      }
     }
 
     return result.url ? result : null;
@@ -303,6 +313,12 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
     setUrl(parsed.url);
     if (parsed.method) setMethod(parsed.method);
     if (parsed.headers?.length) setHeaders([...parsed.headers, mkRow()]);
+    if (parsed.digest) {
+      setAuthType("digest");
+      setDigestUser(parsed.digest.username);
+      setDigestPass(parsed.digest.password);
+      setTab("auth");
+    }
     if (parsed.formData?.length) {
       setBodyType("form-data");
       setFormDataRows([...parsed.formData, mkRow()]);
@@ -368,8 +384,7 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
       h.push({ key: apiKeyName, value: apiKeyValue });
     else if (authType === "oauth2" && oauth2Token.trim())
       h.push({ key: "Authorization", value: `Bearer ${oauth2Token.trim()}` });
-    else if (authType === "digest" && digestUser.trim())
-      h.push({ key: "Authorization", value: `Digest username="${digestUser}", password="${digestPass}"` });
+    // digest is handled server-side, not as a header here
     return h;
   };
 
@@ -418,7 +433,7 @@ export default function RequestBuilder({ onSubmit, onSave, isLoading = false, pr
     if (ct && !builtHeaders.some(h => h.key.toLowerCase() === "content-type"))
       builtHeaders.push({ key: "Content-Type", value: ct });
 
-    onSubmit({ url: buildFinalUrl(), method, headers: builtHeaders, body: buildBody(), formData: fd });
+    onSubmit({ url: buildFinalUrl(), method, headers: builtHeaders, body: buildBody(), formData: fd, digest: authType === "digest" && digestUser.trim() ? { username: digestUser, password: digestPass } : null });
   };
 
   const tabs: { id: Tab; label: string }[] = [

@@ -4,6 +4,7 @@ export interface RequestData {
   headers: { key: string; value: string }[];
   body: string | null;
   formData?: { key: string; value: string }[] | null;
+  digest?: { username: string; password: string } | null;
 }
 
 export interface ApiResponse {
@@ -42,6 +43,7 @@ export async function executeRequest(requestData: RequestData): Promise<ApiRespo
       headers: headersObj,
       body: requestData.body,
       formData: requestData.formData,
+      digest: requestData.digest,
     }),
   });
   return res.json();

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import db, { cuid } from '@/lib/db'
 import { auth } from '@/lib/auth'
+import { createHash } from 'crypto'
 
 async function saveHistory(userId: string, method: string, url: string, headers: Record<string, string>, body: string | null, status: number, statusText: string, response: string, timeTaken: number) {
   const id = cuid()
@@ -20,11 +21,11 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const userId = session.user.id
 
-  let body: { method: string; url: string; headers?: Record<string, string>; body?: string | null; formData?: { key: string; value: string }[] }
+  let body: { method: string; url: string; headers?: Record<string, string>; body?: string | null; formData?: { key: string; value: string }[]; digest?: { username: string; password: string } | null }
   try { body = await req.json() }
   catch { return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 }) }
 
-  const { method, url, headers = {}, body: requestBody, formData } = body
+  const { method, url, headers = {}, body: requestBody, formData, digest } = body
   try { new URL(url) } catch { return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 }) }
 
   const controller = new AbortController()
@@ -41,7 +42,6 @@ export async function POST(req: NextRequest) {
         fd.append(key, value)
       }
       fetchBody = fd
-      // Remove any user-supplied Content-Type so fetch sets it with the correct boundary
       for (const k of Object.keys(fetchHeaders)) {
         if (k.toLowerCase() === 'content-type' || k.toLowerCase() === 'content-length') {
           delete fetchHeaders[k]
@@ -53,7 +53,40 @@ export async function POST(req: NextRequest) {
         fetchHeaders = { 'Content-Type': 'application/json', ...fetchHeaders }
     }
 
-    const externalRes = await fetch(url, { method, headers: fetchHeaders, body: fetchBody, signal: controller.signal })
+    let externalRes: Response
+
+    if (digest?.username) {
+      // Step 1: send without auth to get the 401 + WWW-Authenticate challenge
+      const challengeRes = await fetch(url, { method, headers: fetchHeaders, body: fetchBody, signal: controller.signal })
+      if (challengeRes.status === 401) {
+        const wwwAuth = challengeRes.headers.get('WWW-Authenticate') ?? ''
+        const realm = wwwAuth.match(/realm="([^"]+)"/)?.[1] ?? ''
+        const nonce = wwwAuth.match(/nonce="([^"]+)"/)?.[1] ?? ''
+        const qop   = wwwAuth.match(/qop="?([^",]+)"?/)?.[1] ?? ''
+        const opaque = wwwAuth.match(/opaque="([^"]+)"/)?.[1]
+        const md5 = (s: string) => createHash('md5').update(s).digest('hex')
+        const parsedUrl = new URL(url)
+        const uri = parsedUrl.pathname + parsedUrl.search
+        const ha1 = md5(`${digest.username}:${realm}:${digest.password}`)
+        const ha2 = md5(`${method}:${uri}`)
+        let response: string
+        let authHeader: string
+        if (qop === 'auth') {
+          const nc = '00000001'
+          const cnonce = Math.random().toString(36).slice(2, 10)
+          response = md5(`${ha1}:${nonce}:${nc}:${cnonce}:auth:${ha2}`)
+          authHeader = `Digest username="${digest.username}", realm="${realm}", nonce="${nonce}", uri="${uri}", qop=auth, nc=${nc}, cnonce="${cnonce}", response="${response}"${opaque ? `, opaque="${opaque}"` : ''}`
+        } else {
+          response = md5(`${ha1}:${nonce}:${ha2}`)
+          authHeader = `Digest username="${digest.username}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${response}"${opaque ? `, opaque="${opaque}"` : ''}`
+        }
+        externalRes = await fetch(url, { method, headers: { ...fetchHeaders, Authorization: authHeader }, body: fetchBody, signal: controller.signal })
+      } else {
+        externalRes = challengeRes
+      }
+    } else {
+      externalRes = await fetch(url, { method, headers: fetchHeaders, body: fetchBody, signal: controller.signal })
+    }
     clearTimeout(timeout)
     const timeTaken = Date.now() - start
     const rawText = await externalRes.text()
