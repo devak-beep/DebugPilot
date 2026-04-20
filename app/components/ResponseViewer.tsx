@@ -283,7 +283,7 @@ function CodeWithLineNumbers({ children, html }: { children?: string; html?: str
   );
 }
 
-export default function ResponseViewer({ response, onSaveResponse, url }: { response: ResponseData; onSaveResponse?: () => void; url?: string }) {
+export default function ResponseViewer({ response, onSaveResponse, url, filename }: { response: ResponseData; onSaveResponse?: () => void; url?: string; filename?: string }) {
   const statusColor = getStatusColor(response.status);
   const isError = !!response.error;
 
@@ -326,15 +326,11 @@ export default function ResponseViewer({ response, onSaveResponse, url }: { resp
   const handleDownload = () => {
     const ext = format === "json" ? "json" : format === "html" ? "html" : format === "xml" ? "xml" : format === "javascript" ? "js" : "txt";
     const mime = format === "json" ? "application/json" : format === "html" ? "text/html" : format === "xml" ? "application/xml" : "text/plain";
-    // Derive filename from URL path, e.g. https://api.example.com/users/list → users-list.json
-    const slug = url
-      ? new URL(url.startsWith("http") ? url : `http://x/${url}`).pathname.replace(/^\//, "").replace(/\//g, "-").replace(/[^a-zA-Z0-9-_]/g, "") || "response"
-      : "response";
-    const filename = `${slug}.${ext}`;
+    const base = filename ? filename.replace(/\.[^.]+$/, "") : "response";
     const blob = new Blob([displayBody], { type: mime });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = filename;
+    a.download = `${base}.${ext}`;
     a.click();
     URL.revokeObjectURL(a.href);
   };

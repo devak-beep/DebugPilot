@@ -357,7 +357,7 @@ export default function Home() {
             </div>
           )}
 
-          {activeTab.response && !activeTab.isLoading && <ResponseViewer response={activeTab.response} onSaveResponse={() => setSaveExampleTarget(true)} url={activeTab.currentRequest?.url} />}
+          {activeTab.response && !activeTab.isLoading && <ResponseViewer response={activeTab.response} onSaveResponse={() => setSaveExampleTarget(true)} url={activeTab.currentRequest?.url} filename={activeTab.savedName} />}
 
           {activeTab.diffLoading && (
             <div className="p-4 rounded-xl text-center text-sm animate-pulse" style={cardStyle}>
