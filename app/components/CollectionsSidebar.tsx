@@ -289,7 +289,7 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
                 : <div key={r.id}
                     draggable
                     onDragStart={() => { setDraggingId(r.id); dragState.reqId = r.id; dragState.folderId = folder.id; dragState.collectionId = collectionId; }}
-                    onDragEnd={() => { setDraggingId(null); dragState.reqId = null; }}
+                    onDragEnd={() => { setDraggingId(null); setDragOverId(null); dragState.reqId = null; }}
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverId(r.id); }}
                     onDragLeave={() => setDragOverId(null)}
                     onDrop={(e) => { e.stopPropagation(); handleReqDrop(r.id); }}
@@ -402,7 +402,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
               : <div key={r.id}
                   draggable
                   onDragStart={() => { reqDragItem.current = r.id; setReqDraggingId(r.id); dragState.reqId = r.id; dragState.folderId = null; dragState.collectionId = col.id; }}
-                  onDragEnd={() => { setReqDraggingId(null); dragState.reqId = null; }}
+                  onDragEnd={() => { setReqDraggingId(null); setReqDragOver(null); dragState.reqId = null; }}
                   onDragOver={(e) => { e.preventDefault(); setReqDragOver(r.id); }}
                   onDragLeave={() => setReqDragOver(null)}
                   onDrop={() => handleRootReqDrop(r.id)}
@@ -430,7 +430,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
               : <div key={f.id}
                   draggable
                   onDragStart={() => { folderDragItem.current = f.id; setFolderDraggingId(f.id); }}
-                  onDragEnd={() => { setFolderDraggingId(null); folderDragItem.current = null; }}
+                  onDragEnd={() => { setFolderDraggingId(null); setFolderDragOver(null); folderDragItem.current = null; }}
                   onDragOver={(e) => { e.preventDefault(); setFolderDragOver(f.id); }}
                   onDragLeave={() => setFolderDragOver(null)}
                   onDrop={() => handleFolderDrop(f.id)}
@@ -586,7 +586,7 @@ export default function CollectionsSidebar({
                 : <div key={col.id}
                     draggable
                     onDragStart={() => { colDragItem.current = col.id; setColDraggingId(col.id); }}
-                    onDragEnd={() => { setColDraggingId(null); colDragItem.current = null; }}
+                    onDragEnd={() => { setColDraggingId(null); setColDragOver(null); colDragItem.current = null; }}
                     onDragOver={(e) => { e.preventDefault(); setColDragOver(col.id); }}
                     onDragLeave={() => setColDragOver(null)}
                     onDrop={() => handleColDrop(col.id)}
