@@ -13,6 +13,13 @@ import type { SavedExample } from "@/lib/api";
 import ConfirmModal from "./ConfirmModal";
 import ShareLinkModal from "./ShareLinkModal";
 import MoveRequestModal from "./MoveRequestModal";
+
+// Shared drag state across all folder/collection components
+const dragState = {
+  reqId: null as string | null,
+  collectionId: null as string | null,
+  folderId: null as string | null, // null = root level
+};
 import ShareFolderCollectionModal from "./ShareFolderCollectionModal";
 
 interface Props {
@@ -209,33 +216,60 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [requests, setRequests] = useState(folder.requests);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const dragItem = useRef<string | null>(null);
+  const [folderDropOver, setFolderDropOver] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   useEffect(() => { setRequests(folder.requests); }, [folder.requests]);
 
-  const handleDragStart = (id: string) => { dragItem.current = id; };
-  const handleDrop = async (targetId: string) => {
-    if (!dragItem.current || dragItem.current === targetId) return;
-    const from = requests.findIndex(r => r.id === dragItem.current);
-    const to = requests.findIndex(r => r.id === targetId);
-    if (from === -1 || to === -1) return;
-    const reordered = [...requests];
-    const [moved] = reordered.splice(from, 1);
-    reordered.splice(to, 0, moved);
-    setRequests(reordered);
-    setDragOverId(null);
-    dragItem.current = null;
-    const ids = reordered.map(r => r.id);
-    onRequestsReordered(folder.id, ids);
-    await reorderItems('request', ids);
+  // Drop onto a request inside this folder
+  const handleReqDrop = async (targetId: string) => {
+    const { reqId, folderId: srcFolderId, collectionId: srcColId } = dragState;
+    if (!reqId || reqId === targetId) { setDragOverId(null); return; }
+
+    const isSameFolder = srcFolderId === folder.id;
+    if (isSameFolder) {
+      // Reorder within same folder
+      const from = requests.findIndex(r => r.id === reqId);
+      const to = requests.findIndex(r => r.id === targetId);
+      if (from === -1 || to === -1) return;
+      const reordered = [...requests];
+      const [moved] = reordered.splice(from, 1);
+      reordered.splice(to, 0, moved);
+      setRequests(reordered);
+      setDragOverId(null);
+      await reorderItems('request', reordered.map(r => r.id));
+    } else {
+      // Cross-folder: move the dragged request into this folder
+      await moveRequest(reqId, collectionId, folder.id);
+      onRefresh();
+    }
+    dragState.reqId = null;
+  };
+
+  // Drop onto the folder header itself → move into this folder
+  const handleFolderHeaderDrop = async (e: React.DragEvent) => {
+    e.stopPropagation();
+    setFolderDropOver(false);
+    const { reqId, folderId: srcFolderId } = dragState;
+    if (!reqId || srcFolderId === folder.id) return;
+    await moveRequest(reqId, collectionId, folder.id);
+    dragState.reqId = null;
+    onRefresh();
   };
 
   return (
     <div>
-      <div className="flex items-center gap-1.5 px-2 py-1.5 rounded cursor-pointer group" onClick={() => setOpen(!open)} {...dragHandleProps}>
+      <div
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded cursor-pointer group"
+        style={{ background: folderDropOver ? "color-mix(in srgb, var(--accent) 12%, transparent)" : undefined, transition: "background 0.1s" }}
+        onClick={() => setOpen(!open)}
+        onDragOver={(e) => { if (dragState.reqId) { e.preventDefault(); setFolderDropOver(true); } }}
+        onDragLeave={() => setFolderDropOver(false)}
+        onDrop={handleFolderHeaderDrop}
+        {...dragHandleProps}>
         <span className="text-xs opacity-0 group-hover:opacity-40 cursor-grab shrink-0 select-none" style={{ color: "var(--text-muted)" }}>⠿</span>
         <span className="text-xs">{open ? "📂" : "📁"}</span>
-        <span className="flex-1 text-xs font-medium truncate" style={{ color: "var(--text-secondary)" }}>{folder.name}</span>
+        <span className="flex-1 text-xs font-medium truncate" style={{ color: folderDropOver ? "var(--accent)" : "var(--text-secondary)" }}>{folder.name}</span>
         <DotsMenu items={[
           { label: "➕ New Request", onClick: onNewRequest },
           { label: "✏️ Rename", onClick: onRename },
@@ -254,12 +288,13 @@ function FolderItem({ folder, collectionId, onLoadRequest, onDelete, onRename, o
                     onConfirm={async (name) => { await renameSavedRequest(r.id, name); setRenamingId(null); onRefresh(); }} />
                 : <div key={r.id}
                     draggable
-                    onDragStart={() => handleDragStart(r.id)}
-                    onDragOver={(e) => { e.preventDefault(); setDragOverId(r.id); }}
+                    onDragStart={() => { setDraggingId(r.id); dragState.reqId = r.id; dragState.folderId = folder.id; dragState.collectionId = collectionId; }}
+                    onDragEnd={() => { setDraggingId(null); dragState.reqId = null; }}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverId(r.id); }}
                     onDragLeave={() => setDragOverId(null)}
-                    onDrop={() => handleDrop(r.id)}
+                    onDrop={(e) => { e.stopPropagation(); handleReqDrop(r.id); }}
                     style={{
-                      opacity: dragItem.current === r.id ? 0.4 : 1,
+                      opacity: draggingId === r.id ? 0.4 : 1,
                       borderTop: dragOverId === r.id ? "2px solid var(--accent)" : "2px solid transparent",
                       transition: "border-color 0.1s",
                     }}>
@@ -302,8 +337,10 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
 
   const folderDragItem = useRef<string | null>(null);
   const [folderDragOver, setFolderDragOver] = useState<string | null>(null);
+  const [folderDraggingId, setFolderDraggingId] = useState<string | null>(null);
   const reqDragItem = useRef<string | null>(null);
   const [reqDragOver, setReqDragOver] = useState<string | null>(null);
+  const [reqDraggingId, setReqDraggingId] = useState<string | null>(null);
 
   const handleFolderDrop = async (targetId: string) => {
     if (!folderDragItem.current || folderDragItem.current === targetId) return;
@@ -315,6 +352,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
     reordered.splice(to, 0, moved);
     setFolders(reordered);
     setFolderDragOver(null);
+    setFolderDraggingId(null);
     folderDragItem.current = null;
     await reorderItems('folder', reordered.map(f => f.id));
   };
@@ -329,6 +367,7 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
     reordered.splice(to, 0, moved);
     setRootRequests(reordered);
     setReqDragOver(null);
+    setReqDraggingId(null);
     reqDragItem.current = null;
     await reorderItems('request', reordered.map(r => r.id));
   };
@@ -362,12 +401,13 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
                   onConfirm={async (name) => { await renameSavedRequest(r.id, name); setRenamingRequestId(null); onRefresh(); }} />
               : <div key={r.id}
                   draggable
-                  onDragStart={() => { reqDragItem.current = r.id; }}
+                  onDragStart={() => { reqDragItem.current = r.id; setReqDraggingId(r.id); dragState.reqId = r.id; dragState.folderId = null; dragState.collectionId = col.id; }}
+                  onDragEnd={() => { setReqDraggingId(null); dragState.reqId = null; }}
                   onDragOver={(e) => { e.preventDefault(); setReqDragOver(r.id); }}
                   onDragLeave={() => setReqDragOver(null)}
                   onDrop={() => handleRootReqDrop(r.id)}
                   style={{
-                    opacity: reqDragItem.current === r.id ? 0.4 : 1,
+                    opacity: reqDraggingId === r.id ? 0.4 : 1,
                     borderTop: reqDragOver === r.id ? "2px solid var(--accent)" : "2px solid transparent",
                     transition: "border-color 0.1s",
                   }}>
@@ -389,12 +429,13 @@ function CollectionItem({ col, onLoadRequest, onRefresh, onConfirmDelete, onRena
                   onConfirm={async (name) => { await renameFolder(col.id, f.id, name); setRenamingFolderId(null); onRefresh(); }} />
               : <div key={f.id}
                   draggable
-                  onDragStart={() => { folderDragItem.current = f.id; }}
+                  onDragStart={() => { folderDragItem.current = f.id; setFolderDraggingId(f.id); }}
+                  onDragEnd={() => { setFolderDraggingId(null); folderDragItem.current = null; }}
                   onDragOver={(e) => { e.preventDefault(); setFolderDragOver(f.id); }}
                   onDragLeave={() => setFolderDragOver(null)}
                   onDrop={() => handleFolderDrop(f.id)}
                   style={{
-                    opacity: folderDragItem.current === f.id ? 0.4 : 1,
+                    opacity: folderDraggingId === f.id ? 0.4 : 1,
                     borderTop: folderDragOver === f.id ? "2px solid var(--accent)" : "2px solid transparent",
                     transition: "border-color 0.1s",
                   }}>
@@ -439,6 +480,7 @@ export default function CollectionsSidebar({
   const [localCollections, setLocalCollections] = useState(collections);
   const colDragItem = useRef<string | null>(null);
   const [colDragOver, setColDragOver] = useState<string | null>(null);
+  const [colDraggingId, setColDraggingId] = useState<string | null>(null);
   useEffect(() => { setLocalCollections(collections); }, [collections]);
 
   const handleColDrop = async (targetId: string) => {
@@ -451,6 +493,7 @@ export default function CollectionsSidebar({
     reordered.splice(to, 0, moved);
     setLocalCollections(reordered);
     setColDragOver(null);
+    setColDraggingId(null);
     colDragItem.current = null;
     await reorderItems('collection', reordered.map(c => c.id));
   };
@@ -542,12 +585,13 @@ export default function CollectionsSidebar({
                     onConfirm={async (name) => { await renameCollection(col.id, name); setRenamingCollectionId(null); onRefresh(); }} />
                 : <div key={col.id}
                     draggable
-                    onDragStart={() => { colDragItem.current = col.id; }}
+                    onDragStart={() => { colDragItem.current = col.id; setColDraggingId(col.id); }}
+                    onDragEnd={() => { setColDraggingId(null); colDragItem.current = null; }}
                     onDragOver={(e) => { e.preventDefault(); setColDragOver(col.id); }}
                     onDragLeave={() => setColDragOver(null)}
                     onDrop={() => handleColDrop(col.id)}
                     style={{
-                      opacity: colDragItem.current === col.id ? 0.4 : 1,
+                      opacity: colDraggingId === col.id ? 0.4 : 1,
                       borderTop: colDragOver === col.id ? "2px solid var(--accent)" : "2px solid transparent",
                       transition: "border-color 0.1s",
                     }}>
